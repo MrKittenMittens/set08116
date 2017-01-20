@@ -19,9 +19,12 @@ cubemap cube_map;
 float theta = 0.0f;
 
 bool load_content() {
-
+  // Create triangle data
+  // Positions
   vector<vec3> positions{vec3(0.0f, 1.0f, 0.0f), vec3(-1.0f, -1.0f, 0.0f), vec3(1.0f, -1.0f, 0.0f)};
+  // Colours
   vector<vec4> colours{vec4(1.0f, 0.0f, 0.0f, 1.0f), vec4(1.0f, 0.0f, 0.0f, 1.0f), vec4(1.0f, 0.0f, 0.0f, 1.0f)};
+  // Add to the geometry
   geom.add_buffer(positions, BUFFER_INDEXES::POSITION_BUFFER);
   geom.add_buffer(colours, BUFFER_INDEXES::COLOUR_BUFFER);
 
@@ -118,6 +121,8 @@ bool render() {
                      value_ptr(P * V * translate(mat4(), vec3(-8.0f, -5.0f, -8.0f))));
   renderer::render(geom2);
 
+  // glDisable(GL_DEPTH_TEST);
+  // glDepthMask(GL_FALSE);
   glDisable(GL_CULL_FACE);
 
   renderer::bind(sbeff);
@@ -128,7 +133,8 @@ bool render() {
   renderer::render(geom4);
 
   glEnable(GL_CULL_FACE);
-
+  // glEnable(GL_DEPTH_TEST);
+  // glDepthMask(GL_TRUE);
   return true;
 }
 
