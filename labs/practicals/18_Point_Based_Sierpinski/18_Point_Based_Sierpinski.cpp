@@ -13,7 +13,7 @@ const int num_points = 50000;
 
 void create_sierpinski(geometry &geom) {
   vector<vec3> points;
-  vector<vec4> colours;
+  vector<vec4> colours{ vec4(1.0f, 0.0f, 0.0f, 1.0f), vec4(0.0f, 0.0f, 0.0f, 1.0f), vec4(0.0f, 0.0f, 0.0f, 1.0f) };
   // Three corners of the triangle
   array<vec3, 3> v = {vec3(-1.0f, -1.0f, 0.0f), vec3(0.0f, 1.0f, 0.0f), vec3(1.0f, -1.0f, 0.0f)};
   // Create random engine - generates random numbers
@@ -28,13 +28,16 @@ void create_sierpinski(geometry &geom) {
   for (auto i = 1; i < num_points; ++i) {
     // *********************************
     // Add random point
-
+	  auto n = dist(e);
+	  points[i] = (v[i-1] + v[n])/2.0f;
     // Add colour - all points red
-
+	  
     // *********************************
   }
   // *********************************
   // Add buffers to geometry
+  geom.add_buffer(points, BUFFER_INDEXES::POSITION_BUFFER);
+  geom.add_buffer(colours, BUFFER_INDEXES::COLOUR_BUFFER);
 
 
   // *********************************
