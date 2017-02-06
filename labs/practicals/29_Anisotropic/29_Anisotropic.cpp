@@ -34,8 +34,8 @@ bool load_content() {
   }
 
   // Load in texture shaders, !Note that are pulling in shader file from previous project!
-  eff.add_shader("31_Texturing_Shader/simple_texture.vert", GL_VERTEX_SHADER);
-  eff.add_shader("31_Texturing_Shader/simple_texture.frag", GL_FRAGMENT_SHADER);
+  eff.add_shader("29_Texturing_Shader/simple_texture.vert", GL_VERTEX_SHADER);
+  eff.add_shader("29_Texturing_Shader/simple_texture.frag", GL_FRAGMENT_SHADER);
 
   // Build effect
   eff.build();
@@ -46,10 +46,10 @@ bool load_content() {
   // 2 - mipmaps, anisotropic
   // 3 - mipmaps, no anisotropic
   // ******************************
-
-
-
-
+  texs[0] = texture("D:/Users\drewj\Documents/Uni/Uni\Classes\Year 2 Semester 2\Graphics\Prac_build\bin\DEBUG\textures\sign.jpg");
+  texs[1] = texture("D:/Users\drewj\Documents/Uni/Uni\Classes\Year 2 Semester 2\Graphics\Prac_build\bin\DEBUG\textures\sign.jpg");
+  texs[2] = texture("D:/Users\drewj\Documents/Uni/Uni\Classes\Year 2 Semester 2\Graphics\Prac_build\bin\DEBUG\textures\sign.jpg");
+  texs[3] = texture("D:/Users\drewj\Documents/Uni/Uni\Classes\Year 2 Semester 2\Graphics\Prac_build\bin\DEBUG\textures\sign.jpg");
   // *********************************
   // Set camera properties
   cam.set_position(vec3(10.0f, 2.0f, 200.0f));

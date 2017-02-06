@@ -29,9 +29,11 @@ void create_sierpinski(geometry &geom) {
     // *********************************
     // Add random point
 	  auto n = dist(e);
-	  points[i] = (v[i-1] + v[n])/2.0f;
+	  vec3 point;
+	  point = (points[i-1] + v[n])/2.0f;
+	  points.push_back(point);
     // Add colour - all points red
-	  
+	  colours.push_back(vec4(1.0f, 0.0f, 0.0f, 1.0f));
     // *********************************
   }
   // *********************************

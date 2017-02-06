@@ -68,27 +68,28 @@ bool render() {
 }
 
 void main() {
-  // Create application
-  app application;
-  // Set load content, update and render methods
-  application.set_load_content(load_content);
-  application.set_update(update);
-  application.set_render(render);
-  // Run application
-  application.run();
-=======
+	// Create application
+	app application;
+	// Set load content, update and render methods
+	application.set_load_content(load_content);
+	application.set_update(update);
+	application.set_render(render);
+	// Run application
+	application.run();
+
 #include <glm\glm.hpp>
 #include <graphics_framework.h>
 
-using namespace std;
-using namespace graphics_framework;
-using namespace glm;
+	using namespace std;
+	using namespace graphics_framework;
+	using namespace glm;
 
-geometry geom;
-effect eff;
-target_camera cam;
-float s = 0.0f;
-float total_time = 0.0f;
+	geometry geom;
+	effect eff;
+	target_camera cam;
+	float s = 0.0f;
+	float total_time = 0.0f;
+}
 
 bool load_content() {
   // Create triangle data
@@ -154,5 +155,5 @@ void main() {
   application.set_render(render);
   // Run application
   application.run();
->>>>>>> 8c7a21b4ea899b030e8d7353d01f8085d14dfac4
+
 }
