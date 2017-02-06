@@ -83,4 +83,5 @@ void main() {
 	application.set_render(render);
 	// Run application
 	application.run();
+
 }
