@@ -63,7 +63,6 @@ bool load_content() {
 }
 
 bool update(float delta_time) {
-<<<<<<< HEAD
 	// *********************************
 	// Use keys to update transform values
 	// WSAD - movement
@@ -110,14 +109,7 @@ bool update(float delta_time) {
 	// Update the camera
 	cam.update(delta_time);
 	return true;
-=======
-  // *********************************
-  // Use keys to update transform values
-  // WSAD - movement
-  // Arrow Keys - rotation
-  // O decrease scale, P increase scale
-
-
+}
 
 
 
