@@ -2,12 +2,8 @@
 
 random sizes for the balls
 
-balls spin/move
-
 ball cell shading
 
 Lighting
-
-extra cameras
 
 ball multiple textures, moving textures, appearance of gel

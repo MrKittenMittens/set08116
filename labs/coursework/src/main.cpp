@@ -11,6 +11,8 @@ effect sbeff;
 cubemap cube_map;
 free_camera freeCam;
 target_camera targetCam;
+bool cam_type = false;
+float theta = 0.0f;
 
 //Declare meshes for objects/furnature
 map<string, mesh> table;
@@ -20,6 +22,9 @@ map<string, mesh> shelf;
 map<string, mesh> cupboard;
 map<string, mesh> lamp;
 map<string, mesh> balls;
+bool ball1_direction = true;
+bool ball2_direction = false;
+bool ball3_direction = true;
 
 map<string, texture> textures;
 double cursor_x = 0.0;
@@ -127,26 +132,26 @@ bool load_content() {
 			//back of the chair
 			//back left flat
 			chair["chair_side_left"] = mesh(geometry_builder::create_box(vec3(0.25f, 3.0f, 0.25f)));
-chair["chair_side_left"].get_transform().position = vec3(5.625f, -1.25f, 4.125f);
-textures["chair_side_left"] = texture("textures/woodSeat.png");
+			chair["chair_side_left"].get_transform().position = vec3(5.625f, -1.25f, 4.125f);
+			textures["chair_side_left"] = texture("textures/woodSeat.png");
 
-//back right flat
-chair["chair_side_right"] = mesh(geometry_builder::create_box(vec3(0.25f, 3.0f, 0.25f)));
-chair["chair_side_right"].get_transform().position = vec3(5.625f, -1.25f, 5.875f);
-textures["chair_side_right"] = texture("textures/woodSeat.png");
-
-//top of chair
-chair["chair_top"] = mesh(geometry_builder::create_box(vec3(0.25f, 1.5f, 1.5f)));
-chair["chair_top"].get_transform().position = vec3(5.625f, -0.75f, 5.0f);
-textures["chair_top"] = texture("textures/woodSeat.png");
+			//back right flat
+			chair["chair_side_right"] = mesh(geometry_builder::create_box(vec3(0.25f, 3.0f, 0.25f)));
+			chair["chair_side_right"].get_transform().position = vec3(5.625f, -1.25f, 5.875f);
+			textures["chair_side_right"] = texture("textures/woodSeat.png");
+	
+			//top of chair
+			chair["chair_top"] = mesh(geometry_builder::create_box(vec3(0.25f, 1.5f, 1.5f)));
+			chair["chair_top"].get_transform().position = vec3(5.625f, -0.75f, 5.0f);
+			textures["chair_top"] = texture("textures/woodSeat.png");
 		}
 
 		//Shelf
 		{
-		//Just the shelf
-		shelf["shelf"] = mesh(geometry_builder::create_box(vec3(2.0f, 0.25f, 14.0f)));
-		shelf["shelf"].get_transform().position = vec3(-9.125f, 0.0f, 0.0f);
-		textures["shelf"] = texture("textures/shelf.jpg");
+			//Just the shelf
+			shelf["shelf"] = mesh(geometry_builder::create_box(vec3(2.0f, 0.25f, 14.0f)));
+			shelf["shelf"].get_transform().position = vec3(-9.125f, 0.0f, 0.0f);
+			textures["shelf"] = texture("textures/shelf.jpg");
 		}
 
 		//cupboard
@@ -201,28 +206,21 @@ textures["chair_top"] = texture("textures/woodSeat.png");
 			lamp["lamp_top"].get_transform().position = vec3(0.0f, 3.75f, 0.0f);
 			textures["lamp_top"] = texture("textures/lampMetal.jpg");
 
-			//Cannot get working right now, using transparent texture does not allow for objects behind to be seen
-			/*
-			//lamp middle
-			lamp["lamp_middle"] = mesh(geometry_builder::create_cylinder(100, 100, vec3(3.5f, 5.0f, 3.5f)));
-			lamp["lamp_middle"].get_transform().position = vec3(0.0f, 0.0f, 0.0f);
-			textures["lamp_middle"] = texture("textures/lampGlass1.png");
-			*/
 		}
 
 		//gel/balls
 		{
 			balls["first_ball"] = mesh(geometry_builder::create_sphere(100, 100, vec3(0.75f, 0.75f, 0.75f)));
 			balls["first_ball"].get_transform().position = vec3(0.0f, 0.0f, 0.0f);
-			textures["first_ball"] = texture("textures/gelred.jpg");
+			textures["first_ball"] = texture("textures/gelgreen.jpg");
 
-			balls["second_ball"] = mesh(geometry_builder::create_sphere(100, 100, vec3(0.75f, 0.75f, 0.75f)));
-			balls["second_ball"].get_transform().position = vec3(0.0f, 2.0f, 0.0f);
+			balls["second_ball"] = mesh(geometry_builder::create_sphere(100, 100, vec3(0.5f, 0.5f, 0.5f)));
+			balls["second_ball"].get_transform().position = vec3(-1.0f, 2.0f, 0.0f);
 			textures["second_ball"] = texture("textures/gelblue.png");
 
-			balls["third_ball"] = mesh(geometry_builder::create_sphere(100, 100, vec3(0.75f, 0.75f, 0.75f)));
-			balls["third_ball"].get_transform().position = vec3(0.0f, -2.0f, 0.0f);
-			textures["third_ball"] = texture("textures/gelgreen.jpg");
+			balls["third_ball"] = mesh(geometry_builder::create_sphere(100, 100, vec3(0.5f, 0.5f, 0.5f)));
+			balls["third_ball"].get_transform().position = vec3(1.0f, -2.0f, 0.0f);
+			textures["third_ball"] = texture("textures/gelred.jpg");
 		}
 	}
 
@@ -264,11 +262,94 @@ bool update(float delta_time) {
 		static_cast<float>(renderer::get_screen_width()))) /
 		static_cast<float>(renderer::get_screen_height());
 
-	if (glfwGetKey(renderer::get_window(), GLFW_KEY_1)) {
-		targetCam.set_position(vec3(5.0f, 5.0f, 5.0f));
-		targetCam.set_target(vec3(0.0f, 0.0f, 0.0f));
-	}
+	// Increment theta - half a rotation per second
+	theta += pi<float>() * delta_time;
 
+	//Different camera types
+	{
+		//release setcam
+		if (glfwGetKey(renderer::get_window(), GLFW_KEY_SPACE)) {
+			freeCam.set_position(targetCam.get_position());
+			freeCam.set_target(targetCam.get_position());
+			cam_type = false;
+		}
+		if (glfwGetKey(renderer::get_window(), GLFW_KEY_1)) {
+			targetCam.set_position(vec3(8.0f, 3.0f, 8.0f));
+			targetCam.set_target(vec3(0.0f, 0.0f, 0.0f));
+			cam_type = true;
+		}
+		if (glfwGetKey(renderer::get_window(), GLFW_KEY_2)) {
+			targetCam.set_position(vec3(8.0f, 3.0f, -8.0f));
+			targetCam.set_target(vec3(0.0f, 0.0f, 0.0f));
+			cam_type = true;
+		}
+		if (glfwGetKey(renderer::get_window(), GLFW_KEY_3)) {
+			targetCam.set_position(vec3(-8.0f, 3.0f, 8.0f));
+			targetCam.set_target(vec3(0.0f, 0.0f, 0.0f));
+			cam_type = true;
+		}
+		if (glfwGetKey(renderer::get_window(), GLFW_KEY_4)) {
+			targetCam.set_position(vec3(-8.0f, 3.0f, -8.0f));
+			targetCam.set_target(vec3(0.0f, 0.0f, 0.0f));
+			cam_type = true;
+		}
+	}
+	//set ball movement
+	{
+		//ball1 (green ball)
+		if (ball1_direction) {
+			balls["first_ball"].get_transform().position.y -= delta_time;
+			if (balls["first_ball"].get_transform().position.y <= -3.0f)
+			{
+				ball1_direction = false;
+			}
+
+		}
+		else {
+			balls["first_ball"].get_transform().position.y += delta_time;
+			if (balls["first_ball"].get_transform().position.y >= 3.0f)
+				ball1_direction = true;
+		}
+
+		//ball2 (blue ball)
+		if (ball2_direction) {
+			balls["second_ball"].get_transform().position.y -= delta_time;
+			balls["second_ball"].get_transform().position.x += sin(theta) * 0.05;
+			balls["second_ball"].get_transform().position.z += cos(theta) * 0.05;
+			if (balls["second_ball"].get_transform().position.y <= -3.0f)
+			{
+				ball2_direction = false;
+			}
+
+		}
+		else {
+			balls["second_ball"].get_transform().position.y += delta_time;
+			balls["second_ball"].get_transform().position.x += sin(theta) * 0.05;
+			balls["second_ball"].get_transform().position.z += cos(theta) * 0.05;
+			if (balls["second_ball"].get_transform().position.y >= 3.0f)
+				ball2_direction = true;
+		}
+
+		//ball3 (red ball)
+		if (ball3_direction) {
+			balls["third_ball"].get_transform().position.y -= delta_time;
+			balls["third_ball"].get_transform().position.x -= sin(theta) * 0.05;
+			balls["third_ball"].get_transform().position.z -= cos(theta) * 0.05;
+			if (balls["third_ball"].get_transform().position.y <= -3.0f)
+			{
+				ball3_direction = false;
+			}
+
+		}
+		else {
+			balls["third_ball"].get_transform().position.y += delta_time;
+			balls["third_ball"].get_transform().position.x -= sin(theta) * 0.05;
+			balls["third_ball"].get_transform().position.z -= cos(theta) * 0.05;
+			if (balls["third_ball"].get_transform().position.y >= 3.0f)
+				ball3_direction = true;
+		}
+	}
+	
 
 
 	double current_x;
@@ -319,6 +400,12 @@ bool render() {
 	{
 		auto V = freeCam.get_view();
 		auto P = freeCam.get_projection();
+		if (cam_type) {
+			V = targetCam.get_view();
+			P = targetCam.get_projection();
+		}
+
+
 		//render the room
 		for (auto &e : room) {
 			auto m = e.second;
