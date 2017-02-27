@@ -14,16 +14,16 @@ bool load_content() {
   // Create a sphere
   sphere = mesh(geometry_builder::create_sphere(25, 25));
 
-  array<string, 6> filenames = {"textures/sahara_ft.jpg", "textures/sahara_bk.jpg", "textures/sahara_up.jpg",
-                                "textures/sahara_dn.jpg", "textures/sahara_rt.jpg", "textures/sahara_lf.jpg"};
+  array<string, 6> filenames = {"textures/sahara_ft.png", "textures/sahara_bk.png", "textures/sahara_up.png",
+                                "textures/sahara_dn.png", "textures/sahara_rt.png", "textures/sahara_lf.png"};
   // *********************************
   // Create cube_map
-
+  cube_map = cubemap(filenames);
   // Load in shaders
-
-
+  eff.add_shader("56_Cube_Maps/shader.frag", GL_FRAGMENT_SHADER);
+  eff.add_shader("56_Cube_Maps/shader.vert", GL_VERTEX_SHADER);
   // Build effect
-
+  eff.build();
   // *********************************
 
   // Set camera properties
@@ -47,6 +47,7 @@ bool render() {
   auto P = cam.get_projection();
   auto MVP = P * V * M;
   renderer::bind(cube_map, 0);
+  glUniform1i(eff.get_uniform_location("cubemap"), 0);
   // Set MVP matrix uniform
   glUniformMatrix4fv(eff.get_uniform_location("MVP"), 1, GL_FALSE, value_ptr(MVP));
   // Render mesh
