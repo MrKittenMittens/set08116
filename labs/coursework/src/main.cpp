@@ -270,7 +270,7 @@ bool update(float delta_time) {
 		//release setcam
 		if (glfwGetKey(renderer::get_window(), GLFW_KEY_SPACE)) {
 			freeCam.set_position(targetCam.get_position());
-			freeCam.set_target(targetCam.get_position());
+			freeCam.set_target(vec3(1.0f, 1.0f, 1.0f));
 			cam_type = false;
 		}
 		if (glfwGetKey(renderer::get_window(), GLFW_KEY_1)) {
@@ -294,6 +294,7 @@ bool update(float delta_time) {
 			cam_type = true;
 		}
 	}
+
 	//set ball movement
 	{
 		//ball1 (green ball)

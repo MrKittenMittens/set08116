@@ -7,3 +7,5 @@ ball cell shading
 Lighting
 
 ball multiple textures, moving textures, appearance of gel
+
+Fix Delta_time bug when moving window
