@@ -8,9 +8,9 @@ uniform mat4 MVP;
 uniform mat3 N;
 
 // Incoming position
-layout(location = 0) in vec3 position;
+layout(location = 0) in vec3 position_in;
 // Incoming normal
-layout(location = 2) in vec3 normal;
+layout(location = 2) in vec3 normal_in;
 // Incoming texture coordinate
 layout(location = 10) in vec2 tex_coord_in;
 
@@ -23,11 +23,11 @@ layout(location = 2) out vec2 tex_coord_out;
 
 void main() {
   // Set position
-  gl_Position = MVP * vec4(position, 1);
+  gl_Position = MVP * vec4(position_in, 1);
   // *********************************
   // Output other values to fragment shader
-
-
-
+  vertex_position = vec3(M * vec4(position_in, 1.0));
+  transformed_normal = N * normal_in;
+  tex_coord_out = tex_coord_in;
   // *********************************
 }

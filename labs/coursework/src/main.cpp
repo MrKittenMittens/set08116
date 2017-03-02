@@ -11,6 +11,7 @@ effect sbeff;
 cubemap cube_map;
 free_camera freeCam;
 target_camera targetCam;
+directional_light light;
 bool cam_type = false;
 float theta = 0.0f;
 
@@ -39,6 +40,13 @@ bool initialise() {
 
 
 bool load_content() {
+	//set materials
+	material mat;
+	mat.set_emissive(vec4(0.0f, 0.0f, 0.f, 1.0f));
+	mat.set_specular(vec4(1.0f, 1.0f, 1.0f, 1.0f));
+	mat.set_shininess(25.0f);
+	mat.set_diffuse(vec4(1.0f, 1.0f, 1.0f, 1.0f));
+
 	//Building objects and meshes/textures
 	{
 		//load meshes for objects
@@ -48,29 +56,34 @@ bool load_content() {
 			room["wall_back_inner"] = mesh(geometry_builder::create_plane(20, 10));
 			room["wall_back_inner"].get_transform().orientation = rotate(mat4(1.0f), half_pi<float>(), vec3(1.0f, 0.0f, 0.0f));
 			room["wall_back_inner"].get_transform().position = vec3(0.0f, 0.0f, -10.0f);
+			room["wall_back_inner"].set_material(mat);
 			textures["wall_back_inner"] = texture("textures/wallpaperBF.png");
 
 			//Front wall
 			room["wall_front_inner"] = mesh(geometry_builder::create_plane(20, 10));
 			room["wall_front_inner"].get_transform().orientation = rotate(mat4(1.0f), (half_pi<float>() + pi<float>()), vec3(1.0f, 0.0f, 0.0f));
 			room["wall_front_inner"].get_transform().position = vec3(0.0f, 0.0f, 10.0f);
+			room["wall_front_inner"].set_material(mat);
 			textures["wall_front_inner"] = texture("textures/wallpaperBF.png");
 
 			//Right wall
 			room["wall_left_inner"] = mesh(geometry_builder::create_plane(10, 20));
 			room["wall_left_inner"].get_transform().position = vec3(-10.0f, 0.0f, 0.0f);
 			room["wall_left_inner"].get_transform().orientation = rotate(mat4(1.0f), (half_pi<float>() + pi<float>()), vec3(0.0f, 0.0f, 1.0f));
+			room["wall_left_inner"].set_material(mat);
 			textures["wall_left_inner"] = texture("textures/wallpaperLR.png");
 
 			//Left wall
 			room["wall_right_inner"] = mesh(geometry_builder::create_plane(10, 20));
 			room["wall_right_inner"].get_transform().position = vec3(10.0f, 0.0f, 0.0f);
 			room["wall_right_inner"].get_transform().orientation = rotate(mat4(1.0f), half_pi<float>(), vec3(0.0f, 0.0f, 1.0f));
+			room["wall_right_inner"].set_material(mat);
 			textures["wall_right_inner"] = texture("textures/wallpaperLR.png");
 
 			//floor
 			room["floor"] = mesh(geometry_builder::create_plane(20, 20));
 			room["floor"].get_transform().position = vec3(0.0f, -5.0f, 0.0f);
+			room["wall_back_inner"].set_material(mat);
 			textures["floor"] = texture("textures/floor.jpg");
 		}
 
@@ -224,6 +237,8 @@ bool load_content() {
 		}
 	}
 
+
+
 	//cube map
 	{	
 		array<string, 6> filenames = { "textures/dark_front.png", "textures/dark_back.png", "textures/dark_top.png",
@@ -231,7 +246,12 @@ bool load_content() {
 		cube_map = cubemap(filenames);
 	}
 
-
+	// ambient intensity (0.3, 0.3, 0.3)
+	light.set_ambient_intensity(vec4(0.05f, 0.05f, 0.05f, 0.05f));
+	// Light colour white
+	light.set_light_colour(vec4(0.1f, 0.1f, 0.1f, 0.1f));
+	// Light direction (1.0, 1.0, -1.0)
+	light.set_direction(vec3(1.0f, -1.0f, 1.0f));
 	// Load in shaders
 	eff.add_shader("shaders/basic.vert", GL_VERTEX_SHADER);
 	eff.add_shader("shaders/basic.frag", GL_FRAGMENT_SHADER);
@@ -417,10 +437,23 @@ bool render() {
 			auto MVP = P * V * M;
 			// Set MVP matrix uniform
 			glUniformMatrix4fv(eff.get_uniform_location("MVP"), 1, GL_FALSE, value_ptr(MVP));
-
-			//bind textures to renderer and render correct walls
+			//Set M Matrix uniform
+			glUniformMatrix4fv(eff.get_uniform_location("M"), 1, GL_FALSE, value_ptr(M));
+			//Set N Matrix uniform
+			glUniformMatrix3fv(eff.get_uniform_location("N"), 1, GL_FALSE, value_ptr(m.get_transform().get_normal_matrix()));
+			//bind material
+			renderer::bind(m.get_material(), "mat");
+			//bind light
+			renderer::bind(light, "light");
+			//bind texture
 			renderer::bind(textures[e.first], 0);
+			//Set tex uniform
 			glUniform1i(eff.get_uniform_location("tex"), 0);
+			//Set eye position
+			if (cam_type)
+				glUniform3fv(eff.get_uniform_location("eye_pos"), 1, value_ptr(freeCam.get_position()));
+			else
+				glUniform3fv(eff.get_uniform_location("eye_pos"), 1, value_ptr(targetCam.get_position()));
 			//Render the object
 			renderer::render(m);
 		}
@@ -435,10 +468,23 @@ bool render() {
 			auto MVP = P * V * M;
 			// Set MVP matrix uniform
 			glUniformMatrix4fv(eff.get_uniform_location("MVP"), 1, GL_FALSE, value_ptr(MVP));
-
-			//bind textures to renderer and render correct walls
+			//Set M Matrix uniform
+			glUniformMatrix4fv(eff.get_uniform_location("M"), 1, GL_FALSE, value_ptr(M));
+			//Set N Matrix uniform
+			glUniformMatrix3fv(eff.get_uniform_location("N"), 1, GL_FALSE, value_ptr(m.get_transform().get_normal_matrix()));
+			//bind material
+			renderer::bind(m.get_material(), "mat");
+			//bind light
+			renderer::bind(light, "light");
+			//bind texture
 			renderer::bind(textures[e.first], 0);
+			//Set tex uniform
 			glUniform1i(eff.get_uniform_location("tex"), 0);
+			//Set eye position
+			if (cam_type)
+				glUniform3fv(eff.get_uniform_location("eye_pos"), 1, value_ptr(freeCam.get_position()));
+			else
+				glUniform3fv(eff.get_uniform_location("eye_pos"), 1, value_ptr(targetCam.get_position()));
 			//Render the object
 			renderer::render(m);
 		}
@@ -453,10 +499,23 @@ bool render() {
 			auto MVP = P * V * M;
 			// Set MVP matrix uniform
 			glUniformMatrix4fv(eff.get_uniform_location("MVP"), 1, GL_FALSE, value_ptr(MVP));
-
-			//bind textures to renderer and render correct walls
+			//Set M Matrix uniform
+			glUniformMatrix4fv(eff.get_uniform_location("M"), 1, GL_FALSE, value_ptr(M));
+			//Set N Matrix uniform
+			glUniformMatrix3fv(eff.get_uniform_location("N"), 1, GL_FALSE, value_ptr(m.get_transform().get_normal_matrix()));
+			//bind material
+			renderer::bind(m.get_material(), "mat");
+			//bind light
+			renderer::bind(light, "light");
+			//bind texture
 			renderer::bind(textures[e.first], 0);
+			//Set tex uniform
 			glUniform1i(eff.get_uniform_location("tex"), 0);
+			//Set eye position
+			if (cam_type)
+				glUniform3fv(eff.get_uniform_location("eye_pos"), 1, value_ptr(freeCam.get_position()));
+			else
+				glUniform3fv(eff.get_uniform_location("eye_pos"), 1, value_ptr(targetCam.get_position()));
 			//Render the object
 			renderer::render(m);
 		}
@@ -470,10 +529,23 @@ bool render() {
 			auto MVP = P * V * M;
 			// Set MVP matrix uniform
 			glUniformMatrix4fv(eff.get_uniform_location("MVP"), 1, GL_FALSE, value_ptr(MVP));
-
-			//bind textures to renderer and render correct walls
+			//Set M Matrix uniform
+			glUniformMatrix4fv(eff.get_uniform_location("M"), 1, GL_FALSE, value_ptr(M));
+			//Set N Matrix uniform
+			glUniformMatrix3fv(eff.get_uniform_location("N"), 1, GL_FALSE, value_ptr(m.get_transform().get_normal_matrix()));
+			//bind material
+			renderer::bind(m.get_material(), "mat");
+			//bind light
+			renderer::bind(light, "light");
+			//bind texture
 			renderer::bind(textures[e.first], 0);
+			//Set tex uniform
 			glUniform1i(eff.get_uniform_location("tex"), 0);
+			//Set eye position
+			if (cam_type)
+				glUniform3fv(eff.get_uniform_location("eye_pos"), 1, value_ptr(freeCam.get_position()));
+			else
+				glUniform3fv(eff.get_uniform_location("eye_pos"), 1, value_ptr(targetCam.get_position()));
 			//Render the object
 			renderer::render(m);
 		}
@@ -487,10 +559,23 @@ bool render() {
 			auto MVP = P * V * M;
 			// Set MVP matrix uniform
 			glUniformMatrix4fv(eff.get_uniform_location("MVP"), 1, GL_FALSE, value_ptr(MVP));
-
-			//bind textures to renderer and render correct walls
+			//Set M Matrix uniform
+			glUniformMatrix4fv(eff.get_uniform_location("M"), 1, GL_FALSE, value_ptr(M));
+			//Set N Matrix uniform
+			glUniformMatrix3fv(eff.get_uniform_location("N"), 1, GL_FALSE, value_ptr(m.get_transform().get_normal_matrix()));
+			//bind material
+			renderer::bind(m.get_material(), "mat");
+			//bind light
+			renderer::bind(light, "light");
+			//bind texture
 			renderer::bind(textures[e.first], 0);
+			//Set tex uniform
 			glUniform1i(eff.get_uniform_location("tex"), 0);
+			//Set eye position
+			if (cam_type)
+				glUniform3fv(eff.get_uniform_location("eye_pos"), 1, value_ptr(freeCam.get_position()));
+			else
+				glUniform3fv(eff.get_uniform_location("eye_pos"), 1, value_ptr(targetCam.get_position()));
 			//Render the object
 			renderer::render(m);
 		}
@@ -504,10 +589,23 @@ bool render() {
 			auto MVP = P * V * M;
 			// Set MVP matrix uniform
 			glUniformMatrix4fv(eff.get_uniform_location("MVP"), 1, GL_FALSE, value_ptr(MVP));
-
-			//bind textures to renderer and render correct walls
+			//Set M Matrix uniform
+			glUniformMatrix4fv(eff.get_uniform_location("M"), 1, GL_FALSE, value_ptr(M));
+			//Set N Matrix uniform
+			glUniformMatrix3fv(eff.get_uniform_location("N"), 1, GL_FALSE, value_ptr(m.get_transform().get_normal_matrix()));
+			//bind material
+			renderer::bind(m.get_material(), "mat");
+			//bind light
+			renderer::bind(light, "light");
+			//bind texture
 			renderer::bind(textures[e.first], 0);
+			//Set tex uniform
 			glUniform1i(eff.get_uniform_location("tex"), 0);
+			//Set eye position
+			if (cam_type)
+				glUniform3fv(eff.get_uniform_location("eye_pos"), 1, value_ptr(freeCam.get_position()));
+			else
+				glUniform3fv(eff.get_uniform_location("eye_pos"), 1, value_ptr(targetCam.get_position()));
 			//Render the object
 			renderer::render(m);
 		}
@@ -516,15 +614,28 @@ bool render() {
 			auto m = e.second;
 			// Bind effect
 			renderer::bind(eff);
-
+			// Create MVP matrix
 			auto M = m.get_transform().get_transform_matrix();
 			auto MVP = P * V * M;
 			// Set MVP matrix uniform
 			glUniformMatrix4fv(eff.get_uniform_location("MVP"), 1, GL_FALSE, value_ptr(MVP));
-
-			//bind textures to renderer and render correct walls
+			//Set M Matrix uniform
+			glUniformMatrix4fv(eff.get_uniform_location("M"), 1, GL_FALSE, value_ptr(M));
+			//Set N Matrix uniform
+			glUniformMatrix3fv(eff.get_uniform_location("N"), 1, GL_FALSE, value_ptr(m.get_transform().get_normal_matrix()));
+			//bind material
+			renderer::bind(m.get_material(), "mat");
+			//bind light
+			renderer::bind(light, "light");
+			//bind texture
 			renderer::bind(textures[e.first], 0);
+			//Set tex uniform
 			glUniform1i(eff.get_uniform_location("tex"), 0);
+			//Set eye position
+			if (cam_type)
+				glUniform3fv(eff.get_uniform_location("eye_pos"), 1, value_ptr(freeCam.get_position()));
+			else
+				glUniform3fv(eff.get_uniform_location("eye_pos"), 1, value_ptr(targetCam.get_position()));
 			//Render the object
 			renderer::render(m);
 		}
