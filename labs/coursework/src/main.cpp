@@ -8,10 +8,11 @@ using namespace glm;
 geometry geom;
 effect eff;
 effect sbeff;
+effect tableNorm;
 cubemap cube_map;
 free_camera freeCam;
 target_camera targetCam;
-//directional_light light;
+directional_light light;
 vector <point_light> ball_lights(3);
 spot_light spotlight;
 bool cam_type = false;
@@ -23,7 +24,9 @@ map<string, mesh> room;
 map<string, mesh> chair;
 map<string, mesh> shelf;
 map<string, mesh> cupboard;
+
 map<string, mesh> lamp;
+texture normalMap;
 map<string, mesh> balls;
 bool ball1_direction = true;
 bool ball2_direction = false;
@@ -51,35 +54,41 @@ bool load_content() {
 	mat.set_shininess(5.0f);
 	mat.set_diffuse(vec4(1.0f, 1.0f, 1.0f, 1.0f));
 
+	//set light
+	light.set_ambient_intensity(vec4(0.5f, 0.5f, 0.5f, 1.0f));
+	light.set_light_colour(vec4(0.1f, 0.1f, 0.1f, 1.0f));
+	light.set_direction(vec3(0.0f, 0.0f, 0.0f));
+
+
 	//Building objects and meshes/textures
 	{
 		//load meshes for objects
 		//Room
 		{
 			//Back wall
-			room["wall_back_inner"] = mesh(geometry_builder::create_plane(20, 10));
+			room["wall_back_inner"] = mesh(geometry_builder::create_plane(20, 10, true));
 			room["wall_back_inner"].get_transform().orientation = rotate(mat4(1.0f), half_pi<float>(), vec3(1.0f, 0.0f, 0.0f));
-			room["wall_back_inner"].get_transform().position = vec3(0.0f, 0.0f, -10.0f);
+			room["wall_back_inner"].get_transform().position = vec3(-5.0f, 0.0f, -10.0f);
 			room["wall_back_inner"].set_material(mat);
 			textures["wall_back_inner"] = texture("textures/wallpaperBF.png");
 
 			//Front wall
-			room["wall_front_inner"] = mesh(geometry_builder::create_plane(20, 10));
+			room["wall_front_inner"] = mesh(geometry_builder::create_plane(20, 10, true));
 			room["wall_front_inner"].get_transform().orientation = rotate(mat4(1.0f), (half_pi<float>() + pi<float>()), vec3(1.0f, 0.0f, 0.0f));
-			room["wall_front_inner"].get_transform().position = vec3(0.0f, 0.0f, 10.0f);
+			room["wall_front_inner"].get_transform().position = vec3(-5.0f, 0.0f, 10.0f);
 			room["wall_front_inner"].set_material(mat);
 			textures["wall_front_inner"] = texture("textures/wallpaperBF.png");
 
 			//Right wall
-			room["wall_left_inner"] = mesh(geometry_builder::create_plane(10, 20));
-			room["wall_left_inner"].get_transform().position = vec3(-10.0f, 0.0f, 0.0f);
+			room["wall_left_inner"] = mesh(geometry_builder::create_plane(10, 20, true));
+			room["wall_left_inner"].get_transform().position = vec3(-10.0f, 2.5f, 7.5f);
 			room["wall_left_inner"].get_transform().orientation = rotate(mat4(1.0f), (half_pi<float>() + pi<float>()), vec3(0.0f, 0.0f, 1.0f));
 			room["wall_left_inner"].set_material(mat);
 			textures["wall_left_inner"] = texture("textures/wallpaperLR.png");
 
 			//Left wall
-			room["wall_right_inner"] = mesh(geometry_builder::create_plane(10, 20));
-			room["wall_right_inner"].get_transform().position = vec3(10.0f, 0.0f, 0.0f);
+			room["wall_right_inner"] = mesh(geometry_builder::create_plane(10, 20, true));
+			room["wall_right_inner"].get_transform().position = vec3(10.0f, -2.5f, 7.5f);
 			room["wall_right_inner"].get_transform().orientation = rotate(mat4(1.0f), half_pi<float>(), vec3(0.0f, 0.0f, 1.0f));
 			room["wall_right_inner"].set_material(mat);
 			textures["wall_right_inner"] = texture("textures/wallpaperLR.png");
@@ -230,6 +239,7 @@ bool load_content() {
 		{
 			mat.set_diffuse(vec4(1.0f, 1.0f, 1.0f, 1.0f));
 			mat.set_specular(vec4(0.0f, 1.0f, 0.0f, 1.0f));
+			mat.set_emissive(vec4(0.1f, 0.1f, 0.1f, 1.0f));
 			mat.set_shininess(50.0f);
 			balls["first_ball"] = mesh(geometry_builder::create_sphere(100, 100, vec3(0.75f, 0.75f, 0.75f)));
 			balls["first_ball"].get_transform().position = vec3(0.0f, 0.0f, 0.0f);
@@ -240,17 +250,20 @@ bool load_content() {
 			mat.set_specular(vec4(0.0f, 0.0f, 1.0f, 1.0f));
 			balls["second_ball"] = mesh(geometry_builder::create_sphere(100, 100, vec3(0.5f, 0.5f, 0.5f)));
 			balls["second_ball"].get_transform().position = vec3(-1.0f, 2.0f, 0.0f);
+			balls["second_ball"].set_material(mat);
 			textures["second_ball"] = texture("textures/gelblue.png");
 
 			mat.set_diffuse(vec4(0.0f, 1.0f, 0.0f, 1.0f));
 			mat.set_specular(vec4(1.0f, 0.0f, 0.0f, 1.0f));
 			balls["third_ball"] = mesh(geometry_builder::create_sphere(100, 100, vec3(0.5f, 0.5f, 0.5f)));
 			balls["third_ball"].get_transform().position = vec3(1.0f, -2.0f, 0.0f);
+			balls["third_ball"].set_material(mat);
 			textures["third_ball"] = texture("textures/gelred.jpg");
 		}
 	}
 
 
+	normalMap = texture("textures/table_normal.png");
 	//set spotlight
 	spotlight.set_light_colour(vec4(0.9f, 0.9f, 0.9f, 1.0f));
 	spotlight.set_position(vec3(0.0f, 5.0f, 0.0f));
@@ -277,14 +290,23 @@ bool load_content() {
 		cube_map = cubemap(filenames);
 	}
 
+
 	eff.add_shader("shaders/basic.vert", GL_VERTEX_SHADER);
 	eff.add_shader("shaders/basic.frag", GL_FRAGMENT_SHADER);
+
+	
+
+	tableNorm.add_shader("shaders/normal.frag", GL_FRAGMENT_SHADER);
+	tableNorm.add_shader("shaders/normal.vert", GL_VERTEX_SHADER);
+	tableNorm.add_shader("shaders/part_direction.frag", GL_FRAGMENT_SHADER);
+	tableNorm.add_shader("shaders/part_normal_map.frag", GL_FRAGMENT_SHADER);
 	//skybox shaders
 	sbeff.add_shader("shaders/skybox.vert", GL_VERTEX_SHADER);
 	sbeff.add_shader("shaders/skybox.frag", GL_FRAGMENT_SHADER);
     // Build effect
     eff.build();
 	sbeff.build();
+	tableNorm.build();
 
   // Set camera properties
   freeCam.set_position(vec3(0.0f, 0.0f, 10.0f));
@@ -293,7 +315,6 @@ bool load_content() {
 
   //this is a test
   targetCam.set_position(vec3(0.0f, 0.0f, 10.0f));
-  targetCam.set_target(vec3(0.0f, 0.0f, 0.0f));
   targetCam.set_projection(quarter_pi<float>(), renderer::get_screen_aspect(), 0.1f, 1000.0f);
   return true;
 }
@@ -314,7 +335,7 @@ bool update(float delta_time) {
 		//release setcam
 		if (glfwGetKey(renderer::get_window(), GLFW_KEY_SPACE)) {
 			freeCam.set_position(targetCam.get_position());
-			freeCam.set_target(vec3(1.0f, 1.0f, 1.0f));
+			freeCam.set_target(targetCam.get_target());
 			cam_type = false;
 		}
 		if (glfwGetKey(renderer::get_window(), GLFW_KEY_1)) {
@@ -494,31 +515,35 @@ bool render() {
 		for (auto &e : table) {
 			auto m = e.second;
 			// Bind effect
-			renderer::bind(eff);
+			renderer::bind(tableNorm);
 			// Create MVP matrix
 			auto M = m.get_transform().get_transform_matrix();
 			auto MVP = P * V * M;
 			// Set MVP matrix uniform
-			glUniformMatrix4fv(eff.get_uniform_location("MVP"), 1, GL_FALSE, value_ptr(MVP));
+			glUniformMatrix4fv(tableNorm.get_uniform_location("MVP"), 1, GL_FALSE, value_ptr(MVP));
 			//Set M Matrix uniform
-			glUniformMatrix4fv(eff.get_uniform_location("M"), 1, GL_FALSE, value_ptr(M));
+			glUniformMatrix4fv(tableNorm.get_uniform_location("M"), 1, GL_FALSE, value_ptr(M));
 			//Set N Matrix uniform
-			glUniformMatrix3fv(eff.get_uniform_location("N"), 1, GL_FALSE, value_ptr(m.get_transform().get_normal_matrix()));
+			glUniformMatrix3fv(tableNorm.get_uniform_location("N"), 1, GL_FALSE, value_ptr(m.get_transform().get_normal_matrix()));
 			//bind material
 			renderer::bind(m.get_material(), "mat");
 			//bind point lights
 			renderer::bind(ball_lights, "points");
 			//bind light
-			//renderer::bind(light, "light");
+			renderer::bind(light, "light");
 			//bind texture
 			renderer::bind(textures[e.first], 0);
+			//bind normalmap
+			renderer::bind(normalMap, 1);
+			// Set normal_map uniform
+			glUniform1i(eff.get_uniform_location("normal_map"), 1);
 			//Set tex uniform
-			glUniform1i(eff.get_uniform_location("tex"), 0);
+			glUniform1i(tableNorm.get_uniform_location("tex"), 0);
 			//Set eye position
 			if (cam_type)
-				glUniform3fv(eff.get_uniform_location("eye_pos"), 1, value_ptr(freeCam.get_position()));
+				glUniform3fv(tableNorm.get_uniform_location("eye_pos"), 1, value_ptr(freeCam.get_position()));
 			else
-				glUniform3fv(eff.get_uniform_location("eye_pos"), 1, value_ptr(targetCam.get_position()));
+				glUniform3fv(tableNorm.get_uniform_location("eye_pos"), 1, value_ptr(targetCam.get_position()));
 			//Render the object
 			renderer::render(m);
 		}
