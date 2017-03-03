@@ -48,7 +48,7 @@ bool load_content() {
 	material mat;
 	mat.set_emissive(vec4(0.0f, 0.0f, 0.f, 1.0f));
 	mat.set_specular(vec4(1.0f, 1.0f, 1.0f, 1.0f));
-	mat.set_shininess(25.0f);
+	mat.set_shininess(5.0f);
 	mat.set_diffuse(vec4(1.0f, 1.0f, 1.0f, 1.0f));
 
 	//Building objects and meshes/textures
@@ -93,6 +93,7 @@ bool load_content() {
 
 		//Load meshes for table
 		{
+			mat.set_shininess(25.0f);
 			//front left leg of table
 			table["table_front_left"] = mesh(geometry_builder::create_box(vec3(0.5f, 3.5f, 0.5f)));
 			table["table_front_left"].get_transform().position = vec3(6.5f, -3.25f, 0.0f);
@@ -227,14 +228,22 @@ bool load_content() {
 
 		//gel/balls
 		{
+			mat.set_diffuse(vec4(1.0f, 1.0f, 1.0f, 1.0f));
+			mat.set_specular(vec4(0.0f, 1.0f, 0.0f, 1.0f));
+			mat.set_shininess(50.0f);
 			balls["first_ball"] = mesh(geometry_builder::create_sphere(100, 100, vec3(0.75f, 0.75f, 0.75f)));
 			balls["first_ball"].get_transform().position = vec3(0.0f, 0.0f, 0.0f);
+			balls["first_ball"].set_material(mat);
 			textures["first_ball"] = texture("textures/gelgreen.jpg");
 
+			mat.set_diffuse(vec4(0.0f, 1.0f, 0.0f, 1.0f));
+			mat.set_specular(vec4(0.0f, 0.0f, 1.0f, 1.0f));
 			balls["second_ball"] = mesh(geometry_builder::create_sphere(100, 100, vec3(0.5f, 0.5f, 0.5f)));
 			balls["second_ball"].get_transform().position = vec3(-1.0f, 2.0f, 0.0f);
 			textures["second_ball"] = texture("textures/gelblue.png");
 
+			mat.set_diffuse(vec4(0.0f, 1.0f, 0.0f, 1.0f));
+			mat.set_specular(vec4(1.0f, 0.0f, 0.0f, 1.0f));
 			balls["third_ball"] = mesh(geometry_builder::create_sphere(100, 100, vec3(0.5f, 0.5f, 0.5f)));
 			balls["third_ball"].get_transform().position = vec3(1.0f, -2.0f, 0.0f);
 			textures["third_ball"] = texture("textures/gelred.jpg");
@@ -244,6 +253,10 @@ bool load_content() {
 
 	//set spotlight
 	spotlight.set_light_colour(vec4(0.9f, 0.9f, 0.9f, 1.0f));
+	spotlight.set_position(vec3(0.0f, 5.0f, 0.0f));
+	spotlight.set_light_colour(vec4(1.0f, 1.0f, 1.0f, 1.0f));
+	spotlight.set_range(5.0f);
+	spotlight.set_power(0.5f);
 
 	//set ball lights
 	ball_lights[0].set_position(balls["first_ball"].get_transform().position);
@@ -326,7 +339,7 @@ bool update(float delta_time) {
 		}
 	}
 
-	//set ball movement
+	//set ball and light movement
 	{
 		//ball1 (green ball)
 		if (ball1_direction) {
@@ -651,12 +664,13 @@ bool render() {
 			//Set M Matrix uniform
 			glUniformMatrix4fv(eff.get_uniform_location("M"), 1, GL_FALSE, value_ptr(M));
 			//Set N Matrix uniform
-			glUniformMatrix3fv(eff.get_uniform_location("N"), 1, GL_FALSE, value_ptr(m.get_transform().get_normal_matrix()));
+			glUniformMatrix3fv(eff.get_uniform_location("N"), 1, GL_FALSE, value_ptr((m.get_transform().get_normal_matrix())));
 			//bind material
 			renderer::bind(m.get_material(), "mat");
 			//bind point lights
 			renderer::bind(ball_lights, "points");
 			//bind light
+			renderer::bind(spotlight, "spotlight");
 			//renderer::bind(light, "light");
 			//bind texture
 			renderer::bind(textures[e.first], 0);
