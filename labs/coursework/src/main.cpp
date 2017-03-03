@@ -11,7 +11,9 @@ effect sbeff;
 cubemap cube_map;
 free_camera freeCam;
 target_camera targetCam;
-directional_light light;
+//directional_light light;
+vector <point_light> ball_lights(3);
+spot_light spotlight;
 bool cam_type = false;
 float theta = 0.0f;
 
@@ -40,6 +42,8 @@ bool initialise() {
 
 
 bool load_content() {
+
+
 	//set materials
 	material mat;
 	mat.set_emissive(vec4(0.0f, 0.0f, 0.f, 1.0f));
@@ -238,7 +242,21 @@ bool load_content() {
 	}
 
 
+	//set spotlight
+	spotlight.set_light_colour(vec4(0.9f, 0.9f, 0.9f, 1.0f));
 
+	//set ball lights
+	ball_lights[0].set_position(balls["first_ball"].get_transform().position);
+	ball_lights[0].set_range(5.0f);
+	ball_lights[0].set_light_colour(vec4(0.0f, 1.0f, 0.0f, 1.0f));
+
+	ball_lights[1].set_position(balls["second_ball"].get_transform().position);
+	ball_lights[1].set_range(5.0f);
+	ball_lights[1].set_light_colour(vec4(0.0f, 0.0f, 1.0f, 1.0f));
+
+	ball_lights[2].set_position(balls["third_ball"].get_transform().position);
+	ball_lights[2].set_range(5.0f);
+	ball_lights[2].set_light_colour(vec4(1.0f, 0.0f, 0.0f, 1.0f));
 	//cube map
 	{	
 		array<string, 6> filenames = { "textures/dark_front.png", "textures/dark_back.png", "textures/dark_top.png",
@@ -246,13 +264,6 @@ bool load_content() {
 		cube_map = cubemap(filenames);
 	}
 
-	// ambient intensity (0.3, 0.3, 0.3)
-	light.set_ambient_intensity(vec4(0.05f, 0.05f, 0.05f, 0.05f));
-	// Light colour white
-	light.set_light_colour(vec4(0.1f, 0.1f, 0.1f, 0.1f));
-	// Light direction (1.0, 1.0, -1.0)
-	light.set_direction(vec3(1.0f, -1.0f, 1.0f));
-	// Load in shaders
 	eff.add_shader("shaders/basic.vert", GL_VERTEX_SHADER);
 	eff.add_shader("shaders/basic.frag", GL_FRAGMENT_SHADER);
 	//skybox shaders
@@ -369,6 +380,12 @@ bool update(float delta_time) {
 			if (balls["third_ball"].get_transform().position.y >= 3.0f)
 				ball3_direction = true;
 		}
+
+		//move lights to go with balls
+		ball_lights[0].set_position(balls["first_ball"].get_transform().position);
+		ball_lights[1].set_position(balls["second_ball"].get_transform().position);
+		ball_lights[2].set_position(balls["third_ball"].get_transform().position);
+
 	}
 	
 
@@ -443,8 +460,10 @@ bool render() {
 			glUniformMatrix3fv(eff.get_uniform_location("N"), 1, GL_FALSE, value_ptr(m.get_transform().get_normal_matrix()));
 			//bind material
 			renderer::bind(m.get_material(), "mat");
+			//bind point lights
+			renderer::bind(ball_lights, "points");
 			//bind light
-			renderer::bind(light, "light");
+			//renderer::bind(light, "light");
 			//bind texture
 			renderer::bind(textures[e.first], 0);
 			//Set tex uniform
@@ -474,8 +493,10 @@ bool render() {
 			glUniformMatrix3fv(eff.get_uniform_location("N"), 1, GL_FALSE, value_ptr(m.get_transform().get_normal_matrix()));
 			//bind material
 			renderer::bind(m.get_material(), "mat");
+			//bind point lights
+			renderer::bind(ball_lights, "points");
 			//bind light
-			renderer::bind(light, "light");
+			//renderer::bind(light, "light");
 			//bind texture
 			renderer::bind(textures[e.first], 0);
 			//Set tex uniform
@@ -505,8 +526,10 @@ bool render() {
 			glUniformMatrix3fv(eff.get_uniform_location("N"), 1, GL_FALSE, value_ptr(m.get_transform().get_normal_matrix()));
 			//bind material
 			renderer::bind(m.get_material(), "mat");
+			//bind point lights
+			renderer::bind(ball_lights, "points");
 			//bind light
-			renderer::bind(light, "light");
+			//renderer::bind(light, "light");
 			//bind texture
 			renderer::bind(textures[e.first], 0);
 			//Set tex uniform
@@ -535,8 +558,10 @@ bool render() {
 			glUniformMatrix3fv(eff.get_uniform_location("N"), 1, GL_FALSE, value_ptr(m.get_transform().get_normal_matrix()));
 			//bind material
 			renderer::bind(m.get_material(), "mat");
+			//bind point lights
+			renderer::bind(ball_lights, "points");
 			//bind light
-			renderer::bind(light, "light");
+			//renderer::bind(light, "light");
 			//bind texture
 			renderer::bind(textures[e.first], 0);
 			//Set tex uniform
@@ -565,8 +590,10 @@ bool render() {
 			glUniformMatrix3fv(eff.get_uniform_location("N"), 1, GL_FALSE, value_ptr(m.get_transform().get_normal_matrix()));
 			//bind material
 			renderer::bind(m.get_material(), "mat");
+			//bind point lights
+			renderer::bind(ball_lights, "points");
 			//bind light
-			renderer::bind(light, "light");
+			//renderer::bind(light, "light");
 			//bind texture
 			renderer::bind(textures[e.first], 0);
 			//Set tex uniform
@@ -595,8 +622,10 @@ bool render() {
 			glUniformMatrix3fv(eff.get_uniform_location("N"), 1, GL_FALSE, value_ptr(m.get_transform().get_normal_matrix()));
 			//bind material
 			renderer::bind(m.get_material(), "mat");
+			//bind point lights
+			renderer::bind(ball_lights, "points");
 			//bind light
-			renderer::bind(light, "light");
+			//renderer::bind(light, "light");
 			//bind texture
 			renderer::bind(textures[e.first], 0);
 			//Set tex uniform
@@ -625,8 +654,10 @@ bool render() {
 			glUniformMatrix3fv(eff.get_uniform_location("N"), 1, GL_FALSE, value_ptr(m.get_transform().get_normal_matrix()));
 			//bind material
 			renderer::bind(m.get_material(), "mat");
+			//bind point lights
+			renderer::bind(ball_lights, "points");
 			//bind light
-			renderer::bind(light, "light");
+			//renderer::bind(light, "light");
 			//bind texture
 			renderer::bind(textures[e.first], 0);
 			//Set tex uniform

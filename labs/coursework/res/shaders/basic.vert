@@ -1,96 +1,33 @@
 #version 440
 
-// A directional light structure
-struct directional_light {
-  vec4 ambient_intensity;
-  vec4 light_colour;
-  vec3 light_dir;
-};
-
-// A material structure
-struct material {
-  vec4 emissive;
-  vec4 diffuse_reflection;
-  vec4 specular_reflection;
-  float shininess;
-};
-
-// The model matrix
+// Model transformation matrix
 uniform mat4 M;
-
-// The transformation matrix
+// Transformation matrix
 uniform mat4 MVP;
-
-// The normal matrix
+// Normal matrix
 uniform mat3 N;
 
-// Directional light for the scene
-uniform directional_light light;
-
-// Material of the object
-uniform material mat;
-
-// Position of the camera
-uniform vec3 eye_pos;
-
 // Incoming position
-layout(location = 0) in vec3 position;
+layout(location = 0) in vec3 position_in;
 // Incoming normal
-layout(location = 2) in vec3 normal;
+layout(location = 2) in vec3 normal_in;
 // Incoming texture coordinate
 layout(location = 10) in vec2 tex_coord_in;
 
-// Outgoing primary colour
-layout(location = 0) out vec4 primary;
-// Outgoing secondary colour
-layout(location = 1) out vec4 secondary;
+// Outgoing position
+layout(location = 0) out vec3 position;
+// Outgoing transformed normal
+layout(location = 1) out vec3 normal;
 // Outgoing texture coordinate
-layout(location = 2) out vec2 tex_coord_out;
+layout(location = 2) out vec2 tex_coord;
 
 void main() {
+  // Calculate screen position
+  gl_Position = MVP * vec4(position_in, 1.0);
   // *********************************
-  // Calculate position
-  gl_Position = MVP * vec4(position, 1.0);
-
-  // Calculate ambient component
-  vec4 ambient = mat.diffuse_reflection * light.ambient_intensity;
-
-  // Transform the normal
-  vec3 transformed_normal = N * normal;
-
-  // Calculate k
-  float kd = max(dot(transformed_normal, light.light_dir), 0);
-
-  // Calculate diffuse
-  vec4 diffuse = kd * (mat.diffuse_reflection * light.light_colour);
-
-  // Calculate world position of vertex
-  vec3 world_pos = vec3(M * vec4(position, 1.0));
-
-  // Calculate view direction
-  vec3 view_dir = (eye_pos - world_pos);
-
-  // Calculate half vector between view_dir and light_dir
-  vec3 half_vec = normalize(light.light_dir + view_dir);
-
-  // Calculate specular component
-  // Calculate k
-  float ks = pow(max(dot(transformed_normal, half_vec), 0), mat.shininess);
-
-  // Calculate specular
-  vec4 specular = ks * (light.light_colour * mat.specular_reflection);
-
-  // Set primary
-  primary = ambient + diffuse;
-
-  // Set secondary
-  secondary = specular;
-
-  // Ensure primary and secondary alphas are 1
-  primary.a = 1;
-  secondary.a = 1;
-  
-  // Pass through texture coordinate
-  tex_coord_out = tex_coord_in;
+  // Output other values to fragment shader
+	position = vec3(M * vec4(position_in, 1.0f));
+  normal = N * normal_in;
+  tex_coord = tex_coord_in;
   // *********************************
 }
