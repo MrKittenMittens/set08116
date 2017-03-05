@@ -239,7 +239,7 @@ bool load_content() {
 		{
 			mat.set_diffuse(vec4(1.0f, 1.0f, 1.0f, 1.0f));
 			mat.set_specular(vec4(0.0f, 1.0f, 0.0f, 1.0f));
-			mat.set_emissive(vec4(0.1f, 0.1f, 0.1f, 1.0f));
+			mat.set_emissive(vec4(0.5f, 0.5f, 0.5f, 1.0f));
 			mat.set_shininess(50.0f);
 			balls["first_ball"] = mesh(geometry_builder::create_sphere(100, 100, vec3(0.75f, 0.75f, 0.75f)));
 			balls["first_ball"].get_transform().position = vec3(0.0f, 0.0f, 0.0f);

@@ -1,7 +1,7 @@
 // Calculates the shadow factor of a vertex
 float calculate_shadow(in sampler2D shadow_map, in vec4 light_space_pos)
 {
-    // Get light screen space coordinate
+   // Get light screen space coordinate
     vec3 proj_coords = light_space_pos.xyz / light_space_pos.w;
     // Use this to calculate texture coordinates for shadow map
     vec2 shadow_tex_coords;
@@ -14,13 +14,13 @@ float calculate_shadow(in sampler2D shadow_map, in vec4 light_space_pos)
 	}
     float z = 0.5 * proj_coords.z + 0.5;
 	// *********************************
-    // Now sample the shadow map
-
+  // Now sample the shadow map
+	float depth = texture(shadow_map, shadow_tex_coords).x;
 	// *********************************
     // Check if depth is in range.  Add a slight epsilon for precision
-    if (depth == 0.0)
+    if (depth == 0.0){
          return 1.0;
-    }else if (depth < z + 0.001){}
+    }else if (depth < z + 0.001){
         return 0.5;
     }else{
         return 1.0;
