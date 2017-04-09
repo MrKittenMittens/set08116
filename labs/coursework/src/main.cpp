@@ -6,9 +6,13 @@ using namespace graphics_framework;
 using namespace glm;
 
 geometry geom;
+
+
 effect eff;
 effect sbeff;
 effect tableNorm;
+effect mirror;
+
 cubemap cube_map;
 free_camera freeCam;
 target_camera targetCam;
@@ -17,6 +21,7 @@ vector <point_light> ball_lights(3);
 spot_light spotlight;
 bool cam_type = false;
 float theta = 0.0f;
+material mat;
 
 //Declare meshes for objects/furnature
 map<string, mesh> table;
@@ -24,7 +29,7 @@ map<string, mesh> room;
 map<string, mesh> chair;
 map<string, mesh> shelf;
 map<string, mesh> cupboard;
-
+map<int, map<string, mesh>> meshes;
 map<string, mesh> lamp;
 texture normalMap;
 map<string, mesh> balls;
@@ -48,7 +53,7 @@ bool load_content() {
 
 
 	//set materials
-	material mat;
+
 	mat.set_emissive(vec4(0.0f, 0.0f, 0.f, 1.0f));
 	mat.set_specular(vec4(1.0f, 1.0f, 1.0f, 1.0f));
 	mat.set_shininess(5.0f);
@@ -260,6 +265,14 @@ bool load_content() {
 			balls["third_ball"].set_material(mat);
 			textures["third_ball"] = texture("textures/gelred.jpg");
 		}
+		meshes[0] = room;
+		meshes[1] = table;
+		meshes[2] = chair;
+		meshes[3] = shelf;
+		meshes[4] = cupboard;
+		meshes[5] = lamp;
+		meshes[6] = balls;
+		
 	}
 
 
@@ -291,10 +304,11 @@ bool load_content() {
 	}
 
 
-	eff.add_shader("shaders/basic.vert", GL_VERTEX_SHADER);
-	eff.add_shader("shaders/basic.frag", GL_FRAGMENT_SHADER);
+	eff.add_shader("shaders/ballbasic.vert", GL_VERTEX_SHADER);
+	eff.add_shader("shaders/ballbasic.frag", GL_FRAGMENT_SHADER);
 
-	
+	mirror.add_shader("shaders/ballbasic.vert", GL_VERTEX_SHADER);
+	mirror.add_shader("shaders/raytracing.frag", GL_FRAGMENT_SHADER);
 
 	tableNorm.add_shader("shaders/normal.frag", GL_FRAGMENT_SHADER);
 	tableNorm.add_shader("shaders/normal.vert", GL_VERTEX_SHADER);
@@ -307,15 +321,103 @@ bool load_content() {
     eff.build();
 	sbeff.build();
 	tableNorm.build();
+	mirror.build();
 
   // Set camera properties
   freeCam.set_position(vec3(0.0f, 0.0f, 10.0f));
   freeCam.set_target(vec3(0.0f, 0.0f, 0.0f));
   freeCam.set_projection(quarter_pi<float>(), renderer::get_screen_aspect(), 0.1f, 1000.0f);
 
-  //this is a test
-  targetCam.set_position(vec3(0.0f, 0.0f, 10.0f));
-  targetCam.set_projection(quarter_pi<float>(), renderer::get_screen_aspect(), 0.1f, 1000.0f);
+
+  /*
+  
+  vec4 calculate_mirror()
+{
+//declare vars for	loop
+vec4 ray_start_world;
+vec4 ray_end_world;
+//declare origin and direction
+vec4 origin;
+vec4 direction;
+vec4 computedCol;
+float distance;
+float maxDistance;
+mesh closestMesh;
+for (int x = 0; x< renderer::get_screen_width(); x++)
+{
+	for (int y = 0; y < renderer::get_screen_height(); y++)
+	{
+		int final_colour = 0;
+		//x and y pos of the ray
+		double xx = 2 * x / renderer::get_screen_width() - 1.0f;
+		double yy = 2 * y / renderer::get_screen_height() - 1.0f;
+
+
+		//convert pixels to ray
+		vec4 ray_start_screen(xx, yy, -1, 1);
+		vec4 ray_end_screen(xx, yy, 0, 1);
+
+		//declare projection/view
+		auto P = freeCam.get_projection();
+		auto V = freeCam.get_view();
+		if (cam_type)
+		{
+			P = targetCam.get_projection();
+			V = targetCam.get_view();
+		}
+		auto inverse_matrix = inverse(P*V);
+
+		ray_start_world = inverse_matrix * ray_start_screen;
+		ray_start_world = ray_start_world / ray_start_world.w;
+		ray_end_world = inverse_matrix * ray_end_screen;
+		ray_end_world = ray_end_world / ray_end_world.w;
+
+		direction = normalize(ray_end_world - ray_start_world);
+		origin = ray_start_world;
+
+		for (auto &m : meshes)
+		{
+			auto e = m.second;
+			for (auto &m2 : e)
+			{
+				maxDistance = FLT_MAX;
+				distance = 0.0f;
+				if (test_ray_oobb(origin, direction, m2.second.get_minimal(), m2.second.get_maximal(), m2.second.get_transform().get_transform_matrix(), distance))
+				{
+					if (maxDistance > distance)
+					{
+						maxDistance = distance;
+						closestMesh = m2.second;
+					}
+				}
+			}
+			if (test_ray_oobb(origin, direction, closestMesh.get_minimal(), closestMesh.get_maximal(), closestMesh.get_transform().get_transform_matrix(), distance))
+			{
+				for (auto &l : ball_lights)
+				{
+					//if light is not in another shadow (figure out how to do this, probably once shadows exist)
+					computedCol = calculate_balls(points[i], mat, position, normal, view_direction, texture_colour, eye_pos);
+				}
+			}
+			return finalColour = finalColour + computedCol;
+
+		}
+	}
+}
+}
+  
+  
+  
+  
+  */
+
+
+
+
+
+
+
+
   return true;
 }
 
@@ -323,107 +425,113 @@ bool load_content() {
 bool update(float delta_time) {
 	// The ratio of pixels to rotation
 	static double ratio_width = quarter_pi<float>() / static_cast<float>(renderer::get_screen_width());
-	static double ratio_height = (quarter_pi<float>() * (static_cast<float>(renderer::get_screen_height()) /
-		static_cast<float>(renderer::get_screen_width()))) /
-		static_cast<float>(renderer::get_screen_height());
+static double ratio_height = (quarter_pi<float>() * (static_cast<float>(renderer::get_screen_height()) /
+	static_cast<float>(renderer::get_screen_width()))) /
+	static_cast<float>(renderer::get_screen_height());
 
-	// Increment theta - half a rotation per second
-	theta += pi<float>() * delta_time;
+// Increment theta - half a rotation per second
+theta += pi<float>() * delta_time;
 
-	//Different camera types
-	{
-		//release setcam
-		if (glfwGetKey(renderer::get_window(), GLFW_KEY_SPACE)) {
-			freeCam.set_position(targetCam.get_position());
-			freeCam.set_target(targetCam.get_target());
-			cam_type = false;
-		}
-		if (glfwGetKey(renderer::get_window(), GLFW_KEY_1)) {
-			targetCam.set_position(vec3(8.0f, 3.0f, 8.0f));
-			targetCam.set_target(vec3(0.0f, 0.0f, 0.0f));
-			cam_type = true;
-		}
-		if (glfwGetKey(renderer::get_window(), GLFW_KEY_2)) {
-			targetCam.set_position(vec3(8.0f, 3.0f, -8.0f));
-			targetCam.set_target(vec3(0.0f, 0.0f, 0.0f));
-			cam_type = true;
-		}
-		if (glfwGetKey(renderer::get_window(), GLFW_KEY_3)) {
-			targetCam.set_position(vec3(-8.0f, 3.0f, 8.0f));
-			targetCam.set_target(vec3(0.0f, 0.0f, 0.0f));
-			cam_type = true;
-		}
-		if (glfwGetKey(renderer::get_window(), GLFW_KEY_4)) {
-			targetCam.set_position(vec3(-8.0f, 3.0f, -8.0f));
-			targetCam.set_target(vec3(0.0f, 0.0f, 0.0f));
-			cam_type = true;
-		}
+
+
+//Different camera types
+{
+	//release setcam
+	if (glfwGetKey(renderer::get_window(), GLFW_KEY_SPACE)) {
+		freeCam.set_position(targetCam.get_position());
+		freeCam.set_target(targetCam.get_target());
+		cam_type = false;
 	}
+	if (glfwGetKey(renderer::get_window(), GLFW_KEY_1)) {
+		targetCam.set_position(vec3(8.0f, 3.0f, 8.0f));
+		targetCam.set_target(vec3(0.0f, 0.0f, 0.0f));
+		cam_type = true;
+	}
+	if (glfwGetKey(renderer::get_window(), GLFW_KEY_2)) {
+		targetCam.set_position(vec3(8.0f, 3.0f, -8.0f));
+		targetCam.set_target(vec3(0.0f, 0.0f, 0.0f));
+		cam_type = true;
+	}
+	if (glfwGetKey(renderer::get_window(), GLFW_KEY_3)) {
+		targetCam.set_position(vec3(-8.0f, 3.0f, 8.0f));
+		targetCam.set_target(vec3(0.0f, 0.0f, 0.0f));
+		cam_type = true;
+	}
+	if (glfwGetKey(renderer::get_window(), GLFW_KEY_4)) {
+		targetCam.set_position(vec3(-8.0f, 3.0f, -8.0f));
+		targetCam.set_target(vec3(0.0f, 0.0f, 0.0f));
+		cam_type = true;
+	}
+}
 
-	//set ball and light movement
-	{
-		//ball1 (green ball)
-		if (ball1_direction) {
-			balls["first_ball"].get_transform().position.y -= delta_time;
-			if (balls["first_ball"].get_transform().position.y <= -3.0f)
-			{
-				ball1_direction = false;
-			}
-
+//set ball and light movement
+{
+	//ball1 (green ball)
+	if (ball1_direction) {
+		balls["first_ball"].get_transform().position.y -= delta_time;
+		if (balls["first_ball"].get_transform().position.y <= -3.0f)
+		{
+			ball1_direction = false;
 		}
-		else {
-			balls["first_ball"].get_transform().position.y += delta_time;
-			if (balls["first_ball"].get_transform().position.y >= 3.0f)
-				ball1_direction = true;
-		}
-
-		//ball2 (blue ball)
-		if (ball2_direction) {
-			balls["second_ball"].get_transform().position.y -= delta_time;
-			balls["second_ball"].get_transform().position.x += sin(theta) * 0.05;
-			balls["second_ball"].get_transform().position.z += cos(theta) * 0.05;
-			if (balls["second_ball"].get_transform().position.y <= -3.0f)
-			{
-				ball2_direction = false;
-			}
-
-		}
-		else {
-			balls["second_ball"].get_transform().position.y += delta_time;
-			balls["second_ball"].get_transform().position.x += sin(theta) * 0.05;
-			balls["second_ball"].get_transform().position.z += cos(theta) * 0.05;
-			if (balls["second_ball"].get_transform().position.y >= 3.0f)
-				ball2_direction = true;
-		}
-
-		//ball3 (red ball)
-		if (ball3_direction) {
-			balls["third_ball"].get_transform().position.y -= delta_time;
-			balls["third_ball"].get_transform().position.x -= sin(theta) * 0.05;
-			balls["third_ball"].get_transform().position.z -= cos(theta) * 0.05;
-			if (balls["third_ball"].get_transform().position.y <= -3.0f)
-			{
-				ball3_direction = false;
-			}
-
-		}
-		else {
-			balls["third_ball"].get_transform().position.y += delta_time;
-			balls["third_ball"].get_transform().position.x -= sin(theta) * 0.05;
-			balls["third_ball"].get_transform().position.z -= cos(theta) * 0.05;
-			if (balls["third_ball"].get_transform().position.y >= 3.0f)
-				ball3_direction = true;
-		}
-
-		//move lights to go with balls
-		ball_lights[0].set_position(balls["first_ball"].get_transform().position);
-		ball_lights[1].set_position(balls["second_ball"].get_transform().position);
-		ball_lights[2].set_position(balls["third_ball"].get_transform().position);
 
 	}
+	else {
+		balls["first_ball"].get_transform().position.y += delta_time;
+		if (balls["first_ball"].get_transform().position.y >= 3.0f)
+			ball1_direction = true;
+	}
+
+	//ball2 (blue ball)
+	if (ball2_direction) {
+		balls["second_ball"].get_transform().position.y -= delta_time;
+		balls["second_ball"].get_transform().position.x += sin(theta) * 0.05;
+		balls["second_ball"].get_transform().position.z += cos(theta) * 0.05;
+		if (balls["second_ball"].get_transform().position.y <= -3.0f)
+		{
+			ball2_direction = false;
+		}
+
+	}
+	else {
+		balls["second_ball"].get_transform().position.y += delta_time;
+		balls["second_ball"].get_transform().position.x += sin(theta) * 0.05;
+		balls["second_ball"].get_transform().position.z += cos(theta) * 0.05;
+		if (balls["second_ball"].get_transform().position.y >= 3.0f)
+			ball2_direction = true;
+	}
+
+	//ball3 (red ball)
+	if (ball3_direction) {
+		balls["third_ball"].get_transform().position.y -= delta_time;
+		balls["third_ball"].get_transform().position.x -= sin(theta) * 0.05;
+		balls["third_ball"].get_transform().position.z -= cos(theta) * 0.05;
+		if (balls["third_ball"].get_transform().position.y <= -3.0f)
+		{
+			ball3_direction = false;
+		}
+
+	}
+	else {
+		balls["third_ball"].get_transform().position.y += delta_time;
+		balls["third_ball"].get_transform().position.x -= sin(theta) * 0.05;
+		balls["third_ball"].get_transform().position.z -= cos(theta) * 0.05;
+		if (balls["third_ball"].get_transform().position.y >= 3.0f)
+			ball3_direction = true;
+	}
+
+	//move lights to go with balls
+	ball_lights[0].set_position(balls["first_ball"].get_transform().position);
+	ball_lights[1].set_position(balls["second_ball"].get_transform().position);
+	ball_lights[2].set_position(balls["third_ball"].get_transform().position);
+
+
+	
 	
 
 
+	}
+
+{
 	double current_x;
 	double current_y;
 	// Get the current cursor position
@@ -464,6 +572,7 @@ bool update(float delta_time) {
 	// Update cursor pos
 	cursor_x = current_x;
 	cursor_y = current_y;
+}
   return true;
 }
 
@@ -536,7 +645,7 @@ bool render() {
 			//bind normalmap
 			renderer::bind(normalMap, 1);
 			// Set normal_map uniform
-			glUniform1i(eff.get_uniform_location("normal_map"), 1);
+			glUniform1i(tableNorm.get_uniform_location("normal_map"), 1);
 			//Set tex uniform
 			glUniform1i(tableNorm.get_uniform_location("tex"), 0);
 			//Set eye position
@@ -723,6 +832,7 @@ bool render() {
 	}
 	return true;
 }
+
 
 void main() {
   // Create application

@@ -44,8 +44,8 @@ bool load_content() {
   tex = texture("textures/checker.png");
 
   // Load in shaders
-  eff.add_shader("31_Texturing_Shader/simple_texture.vert", GL_VERTEX_SHADER);
-  eff.add_shader("31_Texturing_Shader/simple_texture.frag", GL_FRAGMENT_SHADER);
+  eff.add_shader("shaders/simple_texture.vert", GL_VERTEX_SHADER);
+  eff.add_shader("shaders/simple_texture.frag", GL_FRAGMENT_SHADER);
   // Build effect
   eff.build();
 
@@ -66,29 +66,45 @@ bool update(float delta_time) {
     cam.set_position(vec3(-50, 10, -50));
   if (glfwGetKey(renderer::get_window(), '4'))
     cam.set_position(vec3(50, 10, -50));
-
   // *********************************
   // Update the camera
-
+  cam.update(delta_time);
   // If mouse button pressed get ray and check for intersection
+  if (glfwGetMouseButton(renderer::get_window(), GLFW_MOUSE_BUTTON_LEFT))
+  {
+	  // Get the mouse position
+	  double mouse_x;
+	  double mouse_y;
+	  glfwGetCursorPos(renderer::get_window(), &mouse_x, &mouse_y);
+	  double xx = 2 * mouse_x / renderer::get_screen_width() - 1.0f;
+	  double yy = 2 * (renderer::get_screen_height() - mouse_y) / renderer::get_screen_height() - 1.0f;
 
-    // Get the mouse position
+	  // Origin and direction of the ray
+	  vec4 origin;
+	  vec4 direction;
 
+	  // Convert mouse position to ray
+	  vec4 ray_start_screen(xx, yy, -1, 1);
+	  vec4 ray_end_screen(xx, yy, 0, 1);
 
+	  auto P = cam.get_projection();
+	  auto V = cam.get_view();
+	  auto inverse_matrix = inverse(P * V);
 
-    // Origin and direction of the ray
+	  vec4 ray_start_world = inverse_matrix * ray_start_screen;
+	  ray_start_world = ray_start_world / ray_start_world.w;
+	  vec4 ray_end_world = inverse_matrix * ray_end_screen;
+	  ray_end_world = ray_end_world / ray_end_world.w;
 
-
-    // Convert mouse position to ray
-
-
-    // *********************************
-    // Check all the mehes for intersection
+	  direction = normalize(ray_end_world - ray_start_world);
+	  origin = ray_start_world;
+	  // *********************************
     for (auto &m : meshes) {
       float distance = 0.0f;
       if (test_ray_oobb(origin, direction, m.second.get_minimal(), m.second.get_maximal(),
                         m.second.get_transform().get_transform_matrix(), distance))
         cout << m.first << " " << distance << endl;
+	  
     }
   }
 
