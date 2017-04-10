@@ -1,145 +1,199 @@
-#include "graphics_framework.h"
-#include <glm/glm.hpp>
-#include <glm/gtx/rotate_vector.hpp>
-using namespace std;
-using namespace graphics_framework;
-using namespace glm;
+#include "GL\glut.h"
+#include <stdlib.h>
+#include <stdio.h>
 
-geometry geom;
-geometry geom2;
-geometry geom3;
-geometry geom4;
-effect eff;
-effect teff;
-effect sbeff;
-texture tpng;
-texture tjpg;
-target_camera cam;
-cubemap cube_map;
-float theta = 0.0f;
+#define TIMER 33
 
-bool load_content() {
+#ifdef WIN32 
+#pragma warning( disable : 4305) 
+#endif 
 
-  vector<vec3> positions{vec3(0.0f, 1.0f, 0.0f), vec3(-1.0f, -1.0f, 0.0f), vec3(1.0f, -1.0f, 0.0f)};
-  vector<vec4> colours{vec4(1.0f, 0.0f, 0.0f, 1.0f), vec4(1.0f, 0.0f, 0.0f, 1.0f), vec4(1.0f, 0.0f, 0.0f, 1.0f)};
-  geom.add_buffer(positions, BUFFER_INDEXES::POSITION_BUFFER);
-  geom.add_buffer(colours, BUFFER_INDEXES::COLOUR_BUFFER);
 
-  geom2 = geometry_builder::create_plane(10, 10);
-  geom4 = geometry_builder::create_box();
 
-  // Load in model
-  auto src = "../../assimp-src/test/models/OBJ/box.obj";
-  geom3 = geometry(src);
+static float xrot;
 
-  src = "../../assimp-src/test/models/LWO/LWO2/uvtest.png";
-  tpng = texture(src, false, false);
-  src = "../../assimp-src/test/models/OBJ/engineflare1.jpg";
-  tjpg = texture(src, false, false);
 
-  array<string, 6> filenames = {"textures/sahara_ft.jpg", "textures/sahara_bk.jpg", "textures/sahara_up.jpg",
-                                "textures/sahara_dn.jpg", "textures/sahara_rt.jpg", "textures/sahara_lf.jpg"};
-  cube_map = cubemap(filenames);
-  // Load in shaders
-  eff.add_shader("shaders/basic.vert", GL_VERTEX_SHADER);
-  eff.add_shader("shaders/basic.frag", GL_FRAGMENT_SHADER);
-  eff.build();
-  teff.add_shader("shaders/basic_textured.vert", GL_VERTEX_SHADER);
-  teff.add_shader("shaders/basic_textured.frag", GL_FRAGMENT_SHADER);
-  teff.build();
-  sbeff.add_shader("shaders/skybox.vert", GL_VERTEX_SHADER);
-  sbeff.add_shader("shaders/skybox.frag", GL_FRAGMENT_SHADER);
-  sbeff.build();
-  // Set camera properties
-  cam.set_position(vec3(10.0f, 10.0f, 10.0f));
-  cam.set_target(vec3(0.0f, 0.0f, 0.0f));
-  auto aspect = static_cast<float>(renderer::get_screen_width()) / static_cast<float>(renderer::get_screen_height());
-  cam.set_projection(1.0472f, aspect, 2.414f, 1000.0f);
-  return true;
+
+GLUquadric *quad;
+
+
+void drawScene(GLenum order)
+{
+	GLfloat pos[4] = { -2.8, 5., 1.8, 1. };
+
+	glLightfv(GL_LIGHT1, GL_POSITION, pos);
+
+	glPushMatrix();
+
+	glEnable(GL_CULL_FACE);
+	glCullFace(GL_BACK);
+	glFrontFace(order);
+
+	/* Draw the walls */
+	glColor3f(1., 1., 1.);
+	glBegin(GL_QUADS);
+	glNormal3f(1., 0., 0.);
+	glVertex3f(-3., 3., 4.);
+	glVertex3f(-3., -3., 4.);
+	glVertex3f(-3., -3., -3.);
+	glVertex3f(-3., 3., -3.);
+	glNormal3f(0., 0., 1.);
+	glVertex3f(-3., 3., -3.);
+	glVertex3f(-3., -3., -3.);
+	glVertex3f(3., -3., -3.);
+	glVertex3f(3., 3., -3.);
+	glNormal3f(-1., 0., 0.);
+	glVertex3f(3., 3., -3.);
+	glVertex3f(3., -3., -3.);
+	glVertex3f(3., -3., 3.);
+	glVertex3f(3., 3., 3.);
+	glEnd();
+	glDisable(GL_CULL_FACE);
+
+	/* Draw the cylinder */
+	glRotatef(xrot, 1., 0., 0.);
+	glTranslatef(0., 0., -1.);
+
+	glColor3f(.5, .5, 1.);
+	glPushMatrix();
+	glTranslatef(0., 0., 2.);
+	gluDisk(quad, 0., .25, 18, 1);
+	glPopMatrix();
+
+	gluCylinder(quad, .25, .25, 2., 18, 8);
+
+	glPushMatrix();
+	glScalef(1., 1., -1.);
+	gluDisk(quad, 0., .25, 18, 1);
+	glPopMatrix();
+
+	glPopMatrix();
 }
 
-bool update(float delta_time) {
-  // Update the angle - half rotation per second
-  theta += pi<float>() * delta_time;
-  // Update the camera
-  cam.set_position(rotate(vec3(15.0f, 12.0f, 15.0f), theta * 0.05f, vec3(0, 1.0f, 0)));
-  cam.update(delta_time);
 
-  if (glfwGetKey(renderer::get_window(), GLFW_KEY_F)) {
-    renderer::set_screen_dimensions(1280, 720);
-    auto aspect = static_cast<float>(renderer::get_screen_width()) / static_cast<float>(renderer::get_screen_height());
-    cam.set_projection(1.0472f, aspect, 2.414f, 1000.0f);
-  }
+static void display(void)
+{
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-  if (glfwGetKey(renderer::get_window(), GLFW_KEY_G)) {
-    renderer::set_screen_dimensions(800, 600);
-    auto aspect = static_cast<float>(renderer::get_screen_width()) / static_cast<float>(renderer::get_screen_height());
-    cam.set_projection(quarter_pi<float>(), aspect, 2.414f, 1000.0f);
-  }
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
+	gluLookAt(0., 1., 7.,
+		-1., 0., 0.,
+		0., 1., 0.);
+	glRotatef(-xrot*.35, 0., 1., 0.);
 
-  if (glfwGetKey(renderer::get_window(), GLFW_KEY_H)) {
-    renderer::set_screen_mode(renderer::borderless);
-    auto aspect = static_cast<float>(renderer::get_screen_width()) / static_cast<float>(renderer::get_screen_height());
-    cam.set_projection(1.0472f, aspect, 2.414f, 1000.0f);
-  }
-  if (glfwGetKey(renderer::get_window(), GLFW_KEY_J)) {
-    renderer::set_screen_mode(renderer::fullscreen);
-    auto aspect = static_cast<float>(renderer::get_screen_width()) / static_cast<float>(renderer::get_screen_height());
-    cam.set_projection(1.0472f, aspect, 2.414f, 1000.0f);
-  }
+	/* Draw reflected scene first */
 
-  return true;
+	glPushMatrix();
+	/* Mirrors lies in YZ plane, so scale by -1.0 in X axis */
+	glScalef(-1., 1., 1.);
+	/* Mirror is 2.0 units from origin, so translate by 4.0 */
+	glTranslatef(4., 0., 0.);
+	drawScene(GL_CW);
+	glPopMatrix();
+
+	/* draw mirror */
+	glClear(GL_DEPTH_BUFFER_BIT);
+	glPushAttrib(0xffffffff);
+	glDisable(GL_LIGHTING);
+	/* Create imperfect reflector effect by blending a black
+	mirror over the reflected scene with alpha of 0.05 */
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glColor4f(0., 0., 0., 0.05);
+	glBegin(GL_QUADS);
+	glVertex3f(-2., 1., 3.);
+	glVertex3f(-2., -1., 3.);
+	glVertex3f(-2., -1., -2.5);
+	glVertex3f(-2., 1., -2.5);
+	glEnd();
+	glPopAttrib();
+
+	/* Draw the real scene */
+	drawScene(GL_CCW);
+
+	glutSwapBuffers();
+
+	{
+		int err = glGetError();
+		if (err != GL_NO_ERROR)
+			printf("Error %x\n", err);
+	}
 }
 
-bool render() {
-  renderer::bind(eff);
-  mat4 R;
-  R = rotate(mat4(1.0f), theta, vec3(0.0f, 0.0f, 1.0f));
-  mat4 M = R;
-  auto V = cam.get_view();
-  auto P = cam.get_projection();
-  auto MVP = P * V * M;
-  // Set MVP matrix uniform
-  glUniformMatrix4fv(eff.get_uniform_location("MVP"), 1, GL_FALSE, value_ptr(MVP));
-
-  renderer::render(geom);
-  renderer::render(geom3);
-  //
-
-  renderer::bind(teff);
-  renderer::bind(tjpg, 0);
-  renderer::bind(tpng, 1);
-  glUniform1i(teff.get_uniform_location("tex"), 0);
-  glUniformMatrix4fv(eff.get_uniform_location("MVP"), 1, GL_FALSE,
-                     value_ptr(P * V * translate(mat4(), vec3(3.0f, -5.0f, -8.0f))));
-  renderer::render(geom2);
-  glUniform1i(teff.get_uniform_location("tex"), 1);
-  glUniformMatrix4fv(eff.get_uniform_location("MVP"), 1, GL_FALSE,
-                     value_ptr(P * V * translate(mat4(), vec3(-8.0f, -5.0f, -8.0f))));
-  renderer::render(geom2);
-
-  glDisable(GL_CULL_FACE);
-
-  renderer::bind(sbeff);
-  MVP = P * V * scale(mat4(), vec3(100.0f));
-  glUniformMatrix4fv(sbeff.get_uniform_location("MVP"), 1, GL_FALSE, value_ptr(MVP));
-  renderer::bind(cube_map, 0);
-  glUniform1i(sbeff.get_uniform_location("cubemap"), 0);
-  renderer::render(geom4);
-
-  glEnable(GL_CULL_FACE);
-
-  return true;
+void reshape(int w, int h)
+{
+	glViewport(0, 0, w, h);
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	gluPerspective(50., (float)w / (float)h, 1., 20.);
 }
 
-int main() {
-  // Create application
-  app application("Welcome to Computer Graphics!", renderer::windowed);
-  // Set load content, update and render methods
-  application.set_load_content(load_content);
-  application.set_update(update);
-  application.set_render(render);
-  // Run application
-  application.run();
-  return 0;
+static void cbMainMenu(int value)
+{
+	if (value == 99) {
+		exit(0);
+	}
+}
+
+
+static void timer(int value)
+{
+	xrot += 1.f;
+	if (xrot > 360.f) xrot -= 360.f;
+
+	glutPostRedisplay();
+	glutTimerFunc(TIMER, timer, 0);
+}
+
+
+static void init()
+{
+	int mainMenu;
+
+	xrot = 0.;
+
+	glDisable(GL_DITHER);
+	glEnable(GL_DEPTH_TEST);
+
+	{
+		GLfloat white[4] = { 1., 1., 1., 1. };
+		GLfloat black[4] = { 0., 0., 0., 0. };
+
+		/* Set up light1 */
+		glEnable(GL_LIGHTING);
+		glEnable(GL_LIGHT1);
+		glLightfv(GL_LIGHT1, GL_DIFFUSE, white);
+		glLightfv(GL_LIGHT1, GL_SPECULAR, white);
+
+		/* ambient and diffuse will track glColor */
+		glEnable(GL_COLOR_MATERIAL);
+		glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);
+		glMaterialfv(GL_FRONT, GL_SPECULAR, white);
+		glMaterialf(GL_FRONT, GL_SHININESS, 20.);
+	}
+
+
+	quad = gluNewQuadric();
+
+	glutDisplayFunc(display);
+	glutReshapeFunc(reshape);
+	glutTimerFunc(TIMER, timer, 0);
+
+	mainMenu = glutCreateMenu(cbMainMenu);
+	glutAddMenuEntry("Quit", 99);
+	glutAttachMenu(GLUT_RIGHT_BUTTON);
+}
+
+void main(int argc, char** argv)
+{
+	glutInit(&argc, argv);
+	glutInitDisplayMode(GLUT_RGB | GLUT_DEPTH | GLUT_DOUBLE);
+	glutInitWindowSize(300, 300);
+	glutInitWindowPosition(0, 0);
+	glutCreateWindow("Two pass mirror");
+
+	init();
+
+	glutMainLoop();
 }
