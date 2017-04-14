@@ -13,6 +13,8 @@ effect sbeff;
 effect tableNorm;
 effect mirrorEff;
 
+std::array<map<string, mesh>, 6> meshes;
+frame_buffer frame;
 cubemap cube_map;
 free_camera freeCam;
 free_camera mirrorCam;
@@ -30,7 +32,6 @@ map<string, mesh> room;
 map<string, mesh> chair;
 map<string, mesh> shelf;
 map<string, mesh> cupboard;
-map<int, map<string, mesh>> meshes;
 map<string, mesh> lamp;
 map<string, mesh> mirror;
 texture normalMap;
@@ -52,7 +53,8 @@ bool initialise() {
 
 bool load_content() {
 
-
+	// Create frame buffer - use screen width and height
+	frame = frame_buffer(renderer::get_screen_width(), renderer::get_screen_height());
 	//set materials
 
 	mat.set_emissive(vec4(0.0f, 0.0f, 0.f, 1.0f));
@@ -332,91 +334,8 @@ bool load_content() {
   freeCam.set_target(vec3(0.0f, 0.0f, 0.0f));
   freeCam.set_projection(quarter_pi<float>(), renderer::get_screen_aspect(), 0.1f, 1000.0f);
   mirrorCam.set_position(vec3(0.0f, 3.75f, 9.9f));
-  mirrorCam.set_target(vec3(0.0f, 0.0f, -10.0f));
+  mirrorCam.set_target(vec3(0.0f, 0.0f, 10.0f));
   
-
-  /*
-  
-  vec4 calculate_mirror()
-{
-//declare vars for	loop
-vec4 ray_start_world;
-vec4 ray_end_world;
-//declare origin and direction
-vec4 origin;
-vec4 direction;
-vec4 computedCol;
-float distance;
-float maxDistance;
-mesh closestMesh;
-for (int x = 0; x< renderer::get_screen_width(); x++)
-{
-	for (int y = 0; y < renderer::get_screen_height(); y++)
-	{
-		int final_colour = 0;
-		//x and y pos of the ray
-		double xx = 2 * x / renderer::get_screen_width() - 1.0f;
-		double yy = 2 * y / renderer::get_screen_height() - 1.0f;
-
-
-		//convert pixels to ray
-		vec4 ray_start_screen(xx, yy, -1, 1);
-		vec4 ray_end_screen(xx, yy, 0, 1);
-
-		//declare projection/view
-		auto P = freeCam.get_projection();
-		auto V = freeCam.get_view();
-		if (cam_type)
-		{
-			P = targetCam.get_projection();
-			V = targetCam.get_view();
-		}
-		auto inverse_matrix = inverse(P*V);
-
-		ray_start_world = inverse_matrix * ray_start_screen;
-		ray_start_world = ray_start_world / ray_start_world.w;
-		ray_end_world = inverse_matrix * ray_end_screen;
-		ray_end_world = ray_end_world / ray_end_world.w;
-
-		direction = normalize(ray_end_world - ray_start_world);
-		origin = ray_start_world;
-
-		for (auto &m : meshes)
-		{
-			auto e = m.second;
-			for (auto &m2 : e)
-			{
-				maxDistance = FLT_MAX;
-				distance = 0.0f;
-				if (test_ray_oobb(origin, direction, m2.second.get_minimal(), m2.second.get_maximal(), m2.second.get_transform().get_transform_matrix(), distance))
-				{
-					if (maxDistance > distance)
-					{
-						maxDistance = distance;
-						closestMesh = m2.second;
-					}
-				}
-			}
-			if (test_ray_oobb(origin, direction, closestMesh.get_minimal(), closestMesh.get_maximal(), closestMesh.get_transform().get_transform_matrix(), distance))
-			{
-				for (auto &l : ball_lights)
-				{
-					//if light is not in another shadow (figure out how to do this, probably once shadows exist)
-					computedCol = calculate_balls(points[i], mat, position, normal, view_direction, texture_colour, eye_pos);
-				}
-			}
-			return finalColour = finalColour + computedCol;
-
-		}
-	}
-}
-}
-  
-  
-  
-  
-  */
-
   return true;
 }
 
@@ -526,13 +445,10 @@ theta += pi<float>() * delta_time;
 	ball_lights[2].set_position(balls["third_ball"].get_transform().position);
 
 
-	
-	
-
 
 	}
 
-//movement
+//cam movement
 {
 	double current_x;
 	double current_y;
@@ -548,7 +464,7 @@ theta += pi<float>() * delta_time;
 	// delta_y - x-axis rotation
 	// delta_x - y-axis rotation
 	freeCam.rotate(delta_x, -delta_y);
-	mirrorCam.rotate(-delta_x, delta_y);
+	//mirrorCam.rotate(-delta_x, delta_y);
 	int shift_held = 1;
 	if (glfwGetKey(renderer::get_window(), GLFW_KEY_LEFT_SHIFT))
 		shift_held = 5;
@@ -608,8 +524,6 @@ bool render() {
 			renderer::bind(m.get_material(), "mat");
 			//bind point lights
 			renderer::bind(ball_lights, "points");
-			//bind light
-			//renderer::bind(light, "light");
 			//bind texture
 			renderer::bind(textures[e.first], 0);
 			//Set tex uniform
@@ -822,36 +736,7 @@ bool render() {
 			renderer::render(m);
 		}
 
-		for (auto &e : mirror)
-		{
-			auto m = e.second;
-			// Bind effect
-			renderer::bind(eff);
-			// Create MVP matrix
-			auto M = m.get_transform().get_transform_matrix();
-			auto MVP = P * V * M;
-			// Set MVP matrix uniform
-			glUniformMatrix4fv(eff.get_uniform_location("MVP"), 1, GL_FALSE, value_ptr(MVP));
-			//Set M Matrix uniform
-			glUniformMatrix4fv(eff.get_uniform_location("M"), 1, GL_FALSE, value_ptr(M));
-			//Set N Matrix uniform
-			glUniformMatrix3fv(eff.get_uniform_location("N"), 1, GL_FALSE, value_ptr((m.get_transform().get_normal_matrix())));
-			//bind material
-			renderer::bind(m.get_material(), "mat");
-			//bind point lights
-			renderer::bind(ball_lights, "points");
-			//bind light
-			renderer::bind(spotlight, "spotlight");
-			//renderer::bind(light, "light");
-			//bind texture
-			renderer::bind(textures[e.first], 0);
-			//Set tex uniform
-			glUniform1i(eff.get_uniform_location("tex"), 0);
-			//Set eye position
-				glUniform3fv(eff.get_uniform_location("eye_pos"), 1, value_ptr(m.get_transform().position));
-			//Render the object
-			renderer::render(m);
-		}
+
 
 		glDisable(GL_CULL_FACE);
 
@@ -863,6 +748,84 @@ bool render() {
 		renderer::render(geometry_builder::create_box());
 
 		glEnable(GL_CULL_FACE);
+
+		// Set render target to frame buffer
+		renderer::set_render_target(frame);
+		// Set clear colour to white
+		renderer::setClearColour(1.0f, 1.0f, 1.0f);
+		// Clear frame
+		renderer::clear();
+		
+		// *********************************
+		// Render meshes
+		for (auto &e : mirror) {
+			auto m = e.second;
+			// Bind effect
+			renderer::bind(mirrorEff);
+			// Create MVP matrix
+			auto M = m.get_transform().get_transform_matrix();
+			auto V = mirrorCam.get_view();
+			auto P = mirrorCam.get_projection();
+			auto MVP = P * V * M;
+			// Set MVP matrix uniform
+			glUniformMatrix4fv(mirrorEff.get_uniform_location("MVP"), 1, GL_FALSE, value_ptr(MVP));
+			// Create MV matrix
+			auto MV = V * M;
+			// Set MV matrix uniform
+			glUniformMatrix4fv(mirrorEff.get_uniform_location("MV"), 1, GL_FALSE, value_ptr(MV));
+			// Set M matrix uniform
+			glUniformMatrix4fv(mirrorEff.get_uniform_location("M"), 1, GL_FALSE, value_ptr(M));
+			// Set N matrix uniform
+			glUniformMatrix3fv(mirrorEff.get_uniform_location("N"), 1, GL_FALSE, value_ptr(m.get_transform().get_normal_matrix()));
+			// Bind material
+			renderer::bind(m.get_material(), "mat");
+			// Bind light
+			renderer::bind(ball_lights, "points");
+			//spotlight
+			renderer::bind(spotlight, "spotlight");
+			// Bind texture
+			renderer::bind(textures[e.first], 0);
+			// Set tex uniform
+			glUniform1i(mirrorEff.get_uniform_location("tex"), 0);
+			// Set eye position
+			glUniform3fv(mirrorEff.get_uniform_location("eye_pos"), 1, value_ptr(mirrorCam.get_position()));
+
+			// Render mesh
+			renderer::render(m);
+		}
+
+
+
+
+		// Return clear colour to cyan
+		renderer::setClearColour(0.0f, 1.0f, 1.0f);
+		// *********************************
+		// Set render target back to the screen
+		renderer::set_render_target();
+
+
+		//bind mirror effect
+		renderer::bind(mirrorEff);
+		//get M from the mirror
+		auto M = mirror["mirrorPlane"].get_transform().get_transform_matrix();
+		//P and V
+		V = freeCam.get_view();
+		P = freeCam.get_projection();
+		//MVP
+		MVP = P * M * V;
+		//mvp matrix uniform
+		glUniformMatrix4fv(mirrorEff.get_uniform_location("MVP"), 1, GL_FALSE, value_ptr(MVP));
+		//bind texture from buffer
+		renderer::bind(frame.get_frame(), 1);
+		//set tex uniform
+		glUniform1i(mirrorEff.get_uniform_location("tex"), 1);
+		//render mirror
+		renderer::render(mirror["mirrorPlane"]);
+
+
+		
+
+		
 	}
 	return true;
 }
