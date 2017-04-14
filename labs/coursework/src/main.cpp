@@ -12,6 +12,7 @@ effect eff;
 effect sbeff;
 effect tableNorm;
 effect mirrorEff;
+effect geff;
 
 std::array<map<string, mesh>, 6> meshes;
 frame_buffer frame;
@@ -25,6 +26,8 @@ spot_light spotlight;
 bool cam_type = false;
 float theta = 0.0f;
 material mat;
+bool greyscale = true;
+bool built;
 
 //Declare meshes for objects/furnature
 map<string, mesh> table;
@@ -39,7 +42,7 @@ map<string, mesh> balls;
 bool ball1_direction = true;
 bool ball2_direction = false;
 bool ball3_direction = true;
-
+geometry screen_quad;
 map<string, texture> textures;
 double cursor_x = 0.0;
 double cursor_y = 0.0;
@@ -52,6 +55,19 @@ bool initialise() {
 }
 
 bool load_content() {
+
+
+	// Create frame buffer - use screen width and height
+	frame = frame_buffer(renderer::get_screen_width(), renderer::get_screen_height());
+	// Create screen quad
+	vector<vec3> positions{ vec3(-1.0f, -1.0f, 0.0f), vec3(1.0f, -1.0f, 0.0f), vec3(-1.0f, 1.0f, 0.0f),
+		vec3(1.0f, 1.0f, 0.0f) };
+	vector<vec2> tex_coords{ vec2(0.0f, 0.0f), vec2(1.0f, 0.0f), vec2(0.0f, 1.0f), vec2(1.0f, 1.0f) };
+	screen_quad.add_buffer(positions, BUFFER_INDEXES::POSITION_BUFFER);
+	screen_quad.add_buffer(tex_coords, BUFFER_INDEXES::TEXTURE_COORDS_0);
+	screen_quad.set_type(GL_TRIANGLE_STRIP);
+
+
 
 	// Create frame buffer - use screen width and height
 	frame = frame_buffer(renderer::get_screen_width(), renderer::get_screen_height());
@@ -313,6 +329,9 @@ bool load_content() {
 	eff.add_shader("shaders/ballbasic.vert", GL_VERTEX_SHADER);
 	eff.add_shader("shaders/ballbasic.frag", GL_FRAGMENT_SHADER);
 
+	geff.add_shader("shaders/ballbasic.vert", GL_VERTEX_SHADER);
+	geff.add_shader("shaders/greyscale.frag", GL_FRAGMENT_SHADER);
+
 	mirrorEff.add_shader("shaders/ballbasic.vert", GL_VERTEX_SHADER);
 	mirrorEff.add_shader("shaders/ballbasic.frag", GL_FRAGMENT_SHADER);
 
@@ -328,6 +347,8 @@ bool load_content() {
 	sbeff.build();
 	tableNorm.build();
 	mirrorEff.build();
+	geff.build();
+
 
   // Set camera properties
   freeCam.set_position(vec3(0.0f, 0.0f, 10.0f));
@@ -383,6 +404,26 @@ theta += pi<float>() * delta_time;
 		cam_type = true;
 	}
 }
+
+//post processing
+{
+	if (glfwGetKey(renderer::get_window(), GLFW_KEY_P))
+	{
+		greyscale = true;
+		built = false;
+	}
+
+	if (glfwGetKey(renderer::get_window(), GLFW_KEY_G))
+	{
+		greyscale = false;
+	}
+
+
+}
+
+
+
+
 
 //set ball and light movement
 {
@@ -504,7 +545,12 @@ bool render() {
 			V = targetCam.get_view();
 			P = targetCam.get_projection();
 		}
-
+		// Set render target to frame buffer
+		renderer::set_render_target(frame);
+		// Set clear colour to white
+		renderer::setClearColour(1.0f, 1.0f, 1.0f);
+		// Clear frame
+		renderer::clear();
 
 		//render the room
 		for (auto &e : room) {
@@ -749,12 +795,7 @@ bool render() {
 
 		glEnable(GL_CULL_FACE);
 
-		// Set render target to frame buffer
-		renderer::set_render_target(frame);
-		// Set clear colour to white
-		renderer::setClearColour(1.0f, 1.0f, 1.0f);
-		// Clear frame
-		renderer::clear();
+		
 		
 		// *********************************
 		// Render meshes
@@ -794,16 +835,6 @@ bool render() {
 			renderer::render(m);
 		}
 
-
-
-
-		// Return clear colour to cyan
-		renderer::setClearColour(0.0f, 1.0f, 1.0f);
-		// *********************************
-		// Set render target back to the screen
-		renderer::set_render_target();
-
-
 		//bind mirror effect
 		renderer::bind(mirrorEff);
 		//get M from the mirror
@@ -823,6 +854,44 @@ bool render() {
 		renderer::render(mirror["mirrorPlane"]);
 
 
+
+
+
+
+		// Return clear colour to cyan
+		renderer::setClearColour(0.0f, 1.0f, 1.0f);
+		// *********************************
+		// Set render target back to the screen
+		renderer::set_render_target();
+
+		effect EFF = eff;
+		if (greyscale)
+		{
+			EFF = eff;
+			built = true;
+		}
+		else
+		{
+			EFF = geff;
+		}
+		if (!built)
+			EFF.build();
+
+		// Set render target back to the screen
+		renderer::set_render_target();
+		// Bind Tex effect
+		renderer::bind(EFF);
+		// MVP is now the identity matrix
+		MVP = mat4(1);
+		// Set MVP matrix uniform
+		glUniformMatrix4fv(EFF.get_uniform_location("MVP"), 1, GL_FALSE, value_ptr(MVP));
+		// Bind texture from frame buffer
+		renderer::bind(frame.get_frame(), 1);
+		// Set the tex uniform
+		glUniform1i(EFF.get_uniform_location("tex"), 1);
+		// Render the screen quad
+		renderer::render(screen_quad);
+		// *********************************
 		
 
 		

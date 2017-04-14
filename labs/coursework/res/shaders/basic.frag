@@ -40,9 +40,11 @@ uniform spot_light spotlight;
 uniform material mat;
 //eye pos
 uniform vec3 eye_pos;
+uniform bool greyscale;
 
 //incoming position
 layout(location = 0) in vec3 position;
+
 
 //normal
 layout(location = 1) in vec3 normal;
@@ -166,4 +168,10 @@ void main() {
 	colour += calculate_balls(points[i], mat, position, normal, view_direction, texture_colour, eye_pos);
   }
   colour += calculate_spotlight(spotlight, mat, position, normal, view_direction, texture_colour);
+
+
+
+
+
+
 }
