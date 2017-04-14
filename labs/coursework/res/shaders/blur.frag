@@ -13,7 +13,7 @@ const vec4 samples[4] = vec4[4](vec4(-1.0, 0.0, 0.0, 0.25), vec4(1.0, 0.0, 0.0, 
                                 vec4(0.0, -1.0, 0.0, 0.25));
 
 // Incoming texture coordinate
-layout(location = 0) in vec2 tex_coord;
+layout(location = 2) in vec2 tex_coord;
 
 // Outgoing colour
 layout(location = 0) out vec4 colour;

@@ -17,13 +17,14 @@ geometry screen_quad;
 bool load_content() {
   // *********************************
   // Create frame buffer - use screen width and height
-
-  // Create screen quad
-
-
-
-
-
+	frame = frame_buffer(renderer::get_screen_width(), renderer::get_screen_height());
+	// Create screen quad
+	vector<vec3> positions{ vec3(-1.0f, -1.0f, 0.0f), vec3(1.0f, -1.0f, 0.0f), vec3(-1.0f, 1.0f, 0.0f),
+		vec3(1.0f, 1.0f, 0.0f) };
+	vector<vec2> tex_coords{ vec2(0.0f, 0.0f), vec2(1.0f, 0.0f), vec2(0.0f, 1.0f), vec2(1.0f, 1.0f) };
+	screen_quad.add_buffer(positions, BUFFER_INDEXES::POSITION_BUFFER);
+	screen_quad.add_buffer(tex_coords, BUFFER_INDEXES::TEXTURE_COORDS_0);
+	screen_quad.set_type(GL_TRIANGLE_STRIP);
 
   // *********************************
 
@@ -102,9 +103,9 @@ bool load_content() {
   light.set_direction(vec3(1.0f, 1.0f, -1.0f));
 
   // Load in shaders
-  eff.add_shader("48_Phong_Shading/phong.vert", GL_VERTEX_SHADER);
-  eff.add_shader("48_Phong_Shading/phong.frag", GL_FRAGMENT_SHADER);
-  tex_eff.add_shader("27_Texturing_Shader/simple_texture.vert", GL_VERTEX_SHADER);
+  eff.add_shader("shaders/phong.vert", GL_VERTEX_SHADER);
+  eff.add_shader("shaders/phong.frag", GL_FRAGMENT_SHADER);
+  tex_eff.add_shader("shaders/simple_texture.vert", GL_VERTEX_SHADER);
   tex_eff.add_shader("72_Blur/blur.frag", GL_FRAGMENT_SHADER);
   // Build effects
   eff.build();
@@ -142,12 +143,10 @@ bool update(float delta_time) {
 }
 
 bool render() {
-  // *********************************
-  // Set render target to frame buffer
-
+ // Set render target to frame buffer
+	renderer::set_render_target(frame);
   // Clear frame
-
-  // *********************************
+	renderer::clear();
 
   // Render meshes
   for (auto &e : meshes) {
@@ -186,23 +185,23 @@ bool render() {
 
   // *********************************
   // Set render target back to the screen
-
+  renderer::set_render_target();
   // Bind Tex effect
-
+  renderer::bind(tex_eff);
   // MVP is now the identity matrix
-
+  mat4 MVP(1.0f);
   // Set MVP matrix uniform
-
+  glUniformMatrix4fv(tex_eff.get_uniform_location("MVP"), 1, GL_FALSE, value_ptr(MVP));
   // Bind texture from frame buffer
-
+  renderer::bind(frame.get_frame(), 0);
   // Set the tex uniform
-
+  glUniform1i(tex_eff.get_uniform_location("tex"), 0);
   // Set inverse width Uniform
-
+  glUniform1f(tex_eff.get_uniform_location("inverse_width"), 1.0f / renderer::get_screen_width());
   // Set inverse height Uniform
-
+  glUniform1f(tex_eff.get_uniform_location("inverse_height"), 1.0f / renderer::get_screen_height());
   // Render the screen quad
-
+  renderer::render(screen_quad);
   // *********************************
 
   return true;

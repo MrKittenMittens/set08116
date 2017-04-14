@@ -13,6 +13,7 @@ effect sbeff;
 effect tableNorm;
 effect mirrorEff;
 effect geff;
+effect beff;
 
 std::array<map<string, mesh>, 6> meshes;
 frame_buffer frame;
@@ -26,8 +27,9 @@ spot_light spotlight;
 bool cam_type = false;
 float theta = 0.0f;
 material mat;
-bool greyscale = true;
-bool built;
+bool greyscale = false;
+bool blur = false;
+bool built = false;
 
 //Declare meshes for objects/furnature
 map<string, mesh> table;
@@ -332,6 +334,9 @@ bool load_content() {
 	geff.add_shader("shaders/ballbasic.vert", GL_VERTEX_SHADER);
 	geff.add_shader("shaders/greyscale.frag", GL_FRAGMENT_SHADER);
 
+	beff.add_shader("shaders/ballbasic.vert", GL_VERTEX_SHADER);
+	beff.add_shader("shaders/blur.frag", GL_FRAGMENT_SHADER);
+
 	mirrorEff.add_shader("shaders/ballbasic.vert", GL_VERTEX_SHADER);
 	mirrorEff.add_shader("shaders/ballbasic.frag", GL_FRAGMENT_SHADER);
 
@@ -348,7 +353,7 @@ bool load_content() {
 	tableNorm.build();
 	mirrorEff.build();
 	geff.build();
-
+	beff.build();
 
   // Set camera properties
   freeCam.set_position(vec3(0.0f, 0.0f, 10.0f));
@@ -407,17 +412,25 @@ theta += pi<float>() * delta_time;
 
 //post processing
 {
-	if (glfwGetKey(renderer::get_window(), GLFW_KEY_P))
+	if (glfwGetKey(renderer::get_window(), GLFW_KEY_G))
 	{
 		greyscale = true;
+		blur = false;
 		built = false;
 	}
 
-	if (glfwGetKey(renderer::get_window(), GLFW_KEY_G))
+	if (glfwGetKey(renderer::get_window(), GLFW_KEY_P))
 	{
 		greyscale = false;
+		blur = false;
 	}
 
+	if (glfwGetKey(renderer::get_window(), GLFW_KEY_B))
+	{
+		blur = true;
+		greyscale = false;
+		built = false;
+	}
 
 }
 
@@ -552,37 +565,6 @@ bool render() {
 		// Clear frame
 		renderer::clear();
 
-		//render the room
-		for (auto &e : room) {
-			auto m = e.second;
-			// Bind effect
-			renderer::bind(eff);
-			// Create MVP matrix
-			auto M = m.get_transform().get_transform_matrix();
-			auto MVP = P * V * M;
-			// Set MVP matrix uniform
-			glUniformMatrix4fv(eff.get_uniform_location("MVP"), 1, GL_FALSE, value_ptr(MVP));
-			//Set M Matrix uniform
-			glUniformMatrix4fv(eff.get_uniform_location("M"), 1, GL_FALSE, value_ptr(M));
-			//Set N Matrix uniform
-			glUniformMatrix3fv(eff.get_uniform_location("N"), 1, GL_FALSE, value_ptr(m.get_transform().get_normal_matrix()));
-			//bind material
-			renderer::bind(m.get_material(), "mat");
-			//bind point lights
-			renderer::bind(ball_lights, "points");
-			//bind texture
-			renderer::bind(textures[e.first], 0);
-			//Set tex uniform
-			glUniform1i(eff.get_uniform_location("tex"), 0);
-			//Set eye position
-			if (cam_type)
-				glUniform3fv(eff.get_uniform_location("eye_pos"), 1, value_ptr(freeCam.get_position()));
-			else
-				glUniform3fv(eff.get_uniform_location("eye_pos"), 1, value_ptr(targetCam.get_position()));
-			//Render the object
-			renderer::render(m);
-		}
-
 		//render the table
 		for (auto &e : table) {
 			auto m = e.second;
@@ -620,11 +602,20 @@ bool render() {
 			renderer::render(m);
 		}
 
-		//render the chair
-		for (auto &e : chair) {
+
+
+
+		// Bind effect
+		renderer::bind(eff);
+		//bind point lights
+		renderer::bind(ball_lights, "points");
+		//Set tex uniform
+		glUniform1i(eff.get_uniform_location("tex"), 0);
+
+		//render the room
+		for (auto &e : room) {
 			auto m = e.second;
-			// Bind effect
-			renderer::bind(eff);
+			
 			// Create MVP matrix
 			auto M = m.get_transform().get_transform_matrix();
 			auto MVP = P * V * M;
@@ -636,14 +627,38 @@ bool render() {
 			glUniformMatrix3fv(eff.get_uniform_location("N"), 1, GL_FALSE, value_ptr(m.get_transform().get_normal_matrix()));
 			//bind material
 			renderer::bind(m.get_material(), "mat");
-			//bind point lights
-			renderer::bind(ball_lights, "points");
-			//bind light
-			//renderer::bind(light, "light");
+			
 			//bind texture
 			renderer::bind(textures[e.first], 0);
-			//Set tex uniform
-			glUniform1i(eff.get_uniform_location("tex"), 0);
+			
+			//Set eye position
+			if (cam_type)
+				glUniform3fv(eff.get_uniform_location("eye_pos"), 1, value_ptr(freeCam.get_position()));
+			else
+				glUniform3fv(eff.get_uniform_location("eye_pos"), 1, value_ptr(targetCam.get_position()));
+			//Render the object
+			renderer::render(m);
+		}
+
+		//render the chair
+		for (auto &e : chair) {
+			auto m = e.second;
+			
+			// Create MVP matrix
+			auto M = m.get_transform().get_transform_matrix();
+			auto MVP = P * V * M;
+			// Set MVP matrix uniform
+			glUniformMatrix4fv(eff.get_uniform_location("MVP"), 1, GL_FALSE, value_ptr(MVP));
+			//Set M Matrix uniform
+			glUniformMatrix4fv(eff.get_uniform_location("M"), 1, GL_FALSE, value_ptr(M));
+			//Set N Matrix uniform
+			glUniformMatrix3fv(eff.get_uniform_location("N"), 1, GL_FALSE, value_ptr(m.get_transform().get_normal_matrix()));
+			//bind material
+			renderer::bind(m.get_material(), "mat");
+			
+			//bind texture
+			renderer::bind(textures[e.first], 0);
+			
 			//Set eye position
 			if (cam_type)
 				glUniform3fv(eff.get_uniform_location("eye_pos"), 1, value_ptr(freeCam.get_position()));
@@ -867,30 +882,66 @@ bool render() {
 		effect EFF = eff;
 		if (greyscale)
 		{
-			EFF = eff;
+			EFF = geff;
+			built = true;
+		}
+		else if (blur)
+		{
+			EFF = beff;
 			built = true;
 		}
 		else
 		{
-			EFF = geff;
+			EFF = eff;
 		}
 		if (!built)
+		{
+			built = true;
 			EFF.build();
+		}
+
+		
 
 		// Set render target back to the screen
 		renderer::set_render_target();
-		// Bind Tex effect
-		renderer::bind(EFF);
-		// MVP is now the identity matrix
-		MVP = mat4(1);
-		// Set MVP matrix uniform
-		glUniformMatrix4fv(EFF.get_uniform_location("MVP"), 1, GL_FALSE, value_ptr(MVP));
-		// Bind texture from frame buffer
-		renderer::bind(frame.get_frame(), 1);
-		// Set the tex uniform
-		glUniform1i(EFF.get_uniform_location("tex"), 1);
-		// Render the screen quad
-		renderer::render(screen_quad);
+		//if blur
+		if (blur)
+		{
+			renderer::bind(EFF);
+			// MVP is now the identity matrix
+			mat4 MVP(1.0f);
+			// Set MVP matrix uniform
+			glUniformMatrix4fv(EFF.get_uniform_location("MVP"), 1, GL_FALSE, value_ptr(MVP));
+			// Bind texture from frame buffer
+			renderer::bind(frame.get_frame(), 0);
+			// Set the tex uniform
+			glUniform1i(EFF.get_uniform_location("tex"), 0);
+			// Set inverse width Uniform
+			glUniform1f(EFF.get_uniform_location("inverse_width"), 1.0f / renderer::get_screen_width());
+			// Set inverse height Uniform
+			glUniform1f(EFF.get_uniform_location("inverse_height"), 1.0f / renderer::get_screen_height());
+			// Render the screen quad
+			renderer::render(screen_quad);
+		}
+		else
+		{
+			// Set inverse width Uniform
+			glUniform1f(EFF.get_uniform_location("inverse_width"), 1.0f / renderer::get_screen_width());
+			// Set inverse height Uniform
+			glUniform1f(EFF.get_uniform_location("inverse_height"), 1.0f / renderer::get_screen_height());
+			// Bind Tex effect
+			renderer::bind(EFF);
+			// MVP is now the identity matrix
+			MVP = mat4(1);
+			// Set MVP matrix uniform
+			glUniformMatrix4fv(EFF.get_uniform_location("MVP"), 1, GL_FALSE, value_ptr(MVP));
+			// Bind texture from frame buffer
+			renderer::bind(frame.get_frame(), 1);
+			// Set the tex uniform
+			glUniform1i(EFF.get_uniform_location("tex"), 1);
+			// Render the screen quad
+			renderer::render(screen_quad);
+		}
 		// *********************************
 		
 
