@@ -14,6 +14,7 @@ effect tableNorm;
 effect mirrorEff;
 effect geff;
 effect beff;
+effect balleff;
 
 std::array<map<string, mesh>, 6> meshes;
 frame_buffer frame;
@@ -40,6 +41,7 @@ map<string, mesh> cupboard;
 map<string, mesh> lamp;
 map<string, mesh> mirror;
 texture normalMap;
+texture dissolve[2];
 map<string, mesh> balls;
 bool ball1_direction = true;
 bool ball2_direction = false;
@@ -48,6 +50,8 @@ geometry screen_quad;
 map<string, texture> textures;
 double cursor_x = 0.0;
 double cursor_y = 0.0;
+vec2 UV_Scroll;
+float dissolve_factor;
 
 bool initialise() {
 	//dissable cursor, and capture position.
@@ -280,6 +284,7 @@ bool load_content() {
 			balls["first_ball"].get_transform().position = vec3(0.0f, 0.0f, 0.0f);
 			balls["first_ball"].set_material(mat);
 			textures["first_ball"] = texture("textures/gelgreen.jpg");
+			dissolve[0] = texture("textures/greenDissolve.jpg");
 
 			mat.set_diffuse(vec4(0.0f, 1.0f, 0.0f, 1.0f));
 			mat.set_specular(vec4(0.0f, 0.0f, 1.0f, 1.0f));
@@ -287,6 +292,7 @@ bool load_content() {
 			balls["second_ball"].get_transform().position = vec3(-1.0f, 2.0f, 0.0f);
 			balls["second_ball"].set_material(mat);
 			textures["second_ball"] = texture("textures/gelblue.png");
+			dissolve[1] = texture("textures/blueDissolve.jpg");
 
 			mat.set_diffuse(vec4(0.0f, 1.0f, 0.0f, 1.0f));
 			mat.set_specular(vec4(1.0f, 0.0f, 0.0f, 1.0f));
@@ -294,6 +300,7 @@ bool load_content() {
 			balls["third_ball"].get_transform().position = vec3(1.0f, -2.0f, 0.0f);
 			balls["third_ball"].set_material(mat);
 			textures["third_ball"] = texture("textures/gelred.jpg");
+			dissolve[2] = texture("textures/redDissolve.jpg");
 		}
 
 		
@@ -327,34 +334,40 @@ bool load_content() {
 		cube_map = cubemap(filenames);
 	}
 
+	//effects
+	{
+		eff.add_shader("shaders/ballbasic.vert", GL_VERTEX_SHADER);
+		eff.add_shader("shaders/ballbasic.frag", GL_FRAGMENT_SHADER);
 
-	eff.add_shader("shaders/ballbasic.vert", GL_VERTEX_SHADER);
-	eff.add_shader("shaders/ballbasic.frag", GL_FRAGMENT_SHADER);
+		geff.add_shader("shaders/ballbasic.vert", GL_VERTEX_SHADER);
+		geff.add_shader("shaders/greyscale.frag", GL_FRAGMENT_SHADER);
 
-	geff.add_shader("shaders/ballbasic.vert", GL_VERTEX_SHADER);
-	geff.add_shader("shaders/greyscale.frag", GL_FRAGMENT_SHADER);
+		beff.add_shader("shaders/ballbasic.vert", GL_VERTEX_SHADER);
+		beff.add_shader("shaders/blur.frag", GL_FRAGMENT_SHADER);
 
-	beff.add_shader("shaders/ballbasic.vert", GL_VERTEX_SHADER);
-	beff.add_shader("shaders/blur.frag", GL_FRAGMENT_SHADER);
+		mirrorEff.add_shader("shaders/ballbasic.vert", GL_VERTEX_SHADER);
+		mirrorEff.add_shader("shaders/ballbasic.frag", GL_FRAGMENT_SHADER);
 
-	mirrorEff.add_shader("shaders/ballbasic.vert", GL_VERTEX_SHADER);
-	mirrorEff.add_shader("shaders/ballbasic.frag", GL_FRAGMENT_SHADER);
+		tableNorm.add_shader("shaders/normal.frag", GL_FRAGMENT_SHADER);
+		tableNorm.add_shader("shaders/normal.vert", GL_VERTEX_SHADER);
+		tableNorm.add_shader("shaders/part_direction.frag", GL_FRAGMENT_SHADER);
+		tableNorm.add_shader("shaders/part_normal_map.frag", GL_FRAGMENT_SHADER);
+		//skybox shaders
+		sbeff.add_shader("shaders/skybox.vert", GL_VERTEX_SHADER);
+		sbeff.add_shader("shaders/skybox.frag", GL_FRAGMENT_SHADER);
 
-	tableNorm.add_shader("shaders/normal.frag", GL_FRAGMENT_SHADER);
-	tableNorm.add_shader("shaders/normal.vert", GL_VERTEX_SHADER);
-	tableNorm.add_shader("shaders/part_direction.frag", GL_FRAGMENT_SHADER);
-	tableNorm.add_shader("shaders/part_normal_map.frag", GL_FRAGMENT_SHADER);
-	//skybox shaders
-	sbeff.add_shader("shaders/skybox.vert", GL_VERTEX_SHADER);
-	sbeff.add_shader("shaders/skybox.frag", GL_FRAGMENT_SHADER);
-    // Build effect
-    eff.build();
-	sbeff.build();
-	tableNorm.build();
-	mirrorEff.build();
-	geff.build();
-	beff.build();
+		balleff.add_shader("shaders/dissolve.vert", GL_VERTEX_SHADER);
+		balleff.add_shader("shaders/dissolve.frag", GL_FRAGMENT_SHADER);
 
+		// Build effect
+		eff.build();
+		sbeff.build();
+		tableNorm.build();
+		mirrorEff.build();
+		geff.build();
+		beff.build();
+		balleff.build();
+	}
   // Set camera properties
   freeCam.set_position(vec3(0.0f, 0.0f, 10.0f));
   freeCam.set_target(vec3(0.0f, 0.0f, 0.0f));
@@ -375,7 +388,7 @@ static double ratio_height = (quarter_pi<float>() * (static_cast<float>(renderer
 
 // Increment theta - half a rotation per second
 theta += pi<float>() * delta_time;
-
+UV_Scroll += vec2(0, delta_time * 2);
 
 
 //Different camera types
@@ -443,6 +456,7 @@ theta += pi<float>() * delta_time;
 	//ball1 (green ball)
 	if (ball1_direction) {
 		balls["first_ball"].get_transform().position.y -= delta_time;
+		dissolve_factor = clamp(dissolve_factor + 0.1f * delta_time, 0.0f, 1.0f);
 		if (balls["first_ball"].get_transform().position.y <= -3.0f)
 		{
 			ball1_direction = false;
@@ -451,6 +465,7 @@ theta += pi<float>() * delta_time;
 	}
 	else {
 		balls["first_ball"].get_transform().position.y += delta_time;
+		dissolve_factor = clamp(dissolve_factor - 0.1f * delta_time, 0.0f, 1.0f);
 		if (balls["first_ball"].get_transform().position.y >= 3.0f)
 			ball1_direction = true;
 	}
@@ -763,7 +778,9 @@ bool render() {
 			//Render the object
 			renderer::render(m);
 		}
+		
 
+		int i = 0;
 		for (auto &e : balls) {
 			auto m = e.second;
 			// Bind effect
@@ -777,17 +794,22 @@ bool render() {
 			glUniformMatrix4fv(eff.get_uniform_location("M"), 1, GL_FALSE, value_ptr(M));
 			//Set N Matrix uniform
 			glUniformMatrix3fv(eff.get_uniform_location("N"), 1, GL_FALSE, value_ptr((m.get_transform().get_normal_matrix())));
+			//glUniform1f(balleff.get_uniform_location("dissolve_factor"), dissolve_factor);
 			//bind material
 			renderer::bind(m.get_material(), "mat");
 			//bind point lights
 			renderer::bind(ball_lights, "points");
 			//bind light
 			renderer::bind(spotlight, "spotlight");
-			//renderer::bind(light, "light");
+			renderer::bind(light, "light");
 			//bind texture
 			renderer::bind(textures[e.first], 0);
+			//renderer::bind(dissolve[i], 1);
 			//Set tex uniform
 			glUniform1i(eff.get_uniform_location("tex"), 0);
+			//glUniform1i(balleff.get_uniform_location("dissolve"), 1);
+
+			//glUniform2fv(balleff.get_uniform_location("UV_SCROLL"), 1, value_ptr(UV_Scroll));
 			//Set eye position
 			if (cam_type)
 				glUniform3fv(eff.get_uniform_location("eye_pos"), 1, value_ptr(freeCam.get_position()));
@@ -795,6 +817,7 @@ bool render() {
 				glUniform3fv(eff.get_uniform_location("eye_pos"), 1, value_ptr(targetCam.get_position()));
 			//Render the object
 			renderer::render(m);
+			i++;
 		}
 
 

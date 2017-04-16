@@ -6,17 +6,31 @@ using namespace graphics_framework;
 using namespace glm;
 
 geometry geom;
+
+
 effect eff;
 effect sbeff;
 effect tableNorm;
+effect mirrorEff;
+effect geff;
+effect beff;
+effect balleff;
+
+std::array<map<string, mesh>, 6> meshes;
+frame_buffer frame;
 cubemap cube_map;
 free_camera freeCam;
+free_camera mirrorCam;
 target_camera targetCam;
 directional_light light;
 vector <point_light> ball_lights(3);
 spot_light spotlight;
 bool cam_type = false;
 float theta = 0.0f;
+material mat;
+bool greyscale = false;
+bool blur = false;
+bool built = false;
 
 //Declare meshes for objects/furnature
 map<string, mesh> table;
@@ -24,17 +38,20 @@ map<string, mesh> room;
 map<string, mesh> chair;
 map<string, mesh> shelf;
 map<string, mesh> cupboard;
-
 map<string, mesh> lamp;
+map<string, mesh> mirror;
 texture normalMap;
+texture dissolve[2];
 map<string, mesh> balls;
 bool ball1_direction = true;
 bool ball2_direction = false;
 bool ball3_direction = true;
-
+geometry screen_quad;
 map<string, texture> textures;
 double cursor_x = 0.0;
 double cursor_y = 0.0;
+vec2 UV_Scroll;
+float dissolve_factor;
 
 bool initialise() {
 	//dissable cursor, and capture position.
@@ -43,12 +60,25 @@ bool initialise() {
 	return true;
 }
 
-
 bool load_content() {
 
 
+	// Create frame buffer - use screen width and height
+	frame = frame_buffer(renderer::get_screen_width(), renderer::get_screen_height());
+	// Create screen quad
+	vector<vec3> positions{ vec3(-1.0f, -1.0f, 0.0f), vec3(1.0f, -1.0f, 0.0f), vec3(-1.0f, 1.0f, 0.0f),
+		vec3(1.0f, 1.0f, 0.0f) };
+	vector<vec2> tex_coords{ vec2(0.0f, 0.0f), vec2(1.0f, 0.0f), vec2(0.0f, 1.0f), vec2(1.0f, 1.0f) };
+	screen_quad.add_buffer(positions, BUFFER_INDEXES::POSITION_BUFFER);
+	screen_quad.add_buffer(tex_coords, BUFFER_INDEXES::TEXTURE_COORDS_0);
+	screen_quad.set_type(GL_TRIANGLE_STRIP);
+
+
+
+	// Create frame buffer - use screen width and height
+	frame = frame_buffer(renderer::get_screen_width(), renderer::get_screen_height());
 	//set materials
-	material mat;
+
 	mat.set_emissive(vec4(0.0f, 0.0f, 0.f, 1.0f));
 	mat.set_specular(vec4(1.0f, 1.0f, 1.0f, 1.0f));
 	mat.set_shininess(5.0f);
@@ -235,6 +265,15 @@ bool load_content() {
 
 		}
 
+		//mirror
+		{
+			mirror["mirrorPlane"] = mesh(geometry_builder::create_plane(5, 10, true));
+			mirror["mirrorPlane"].get_transform().position = vec3(0.0f, 3.75f, 9.9f);
+			mirror["mirrorPlane"].get_transform().orientation = rotate(mat4(1.0f), (half_pi<float>() + pi<float>()), vec3(1.0f, 0.0f, 0.0f));
+			mirror["mirrorPlane"].set_material(mat);
+			textures["mirrorPlane"] = texture("textures/mirror.jpg");
+		}
+
 		//gel/balls
 		{
 			mat.set_diffuse(vec4(1.0f, 1.0f, 1.0f, 1.0f));
@@ -245,6 +284,7 @@ bool load_content() {
 			balls["first_ball"].get_transform().position = vec3(0.0f, 0.0f, 0.0f);
 			balls["first_ball"].set_material(mat);
 			textures["first_ball"] = texture("textures/gelgreen.jpg");
+			dissolve[0] = texture("textures/greenDissolve.jpg");
 
 			mat.set_diffuse(vec4(0.0f, 1.0f, 0.0f, 1.0f));
 			mat.set_specular(vec4(0.0f, 0.0f, 1.0f, 1.0f));
@@ -252,6 +292,7 @@ bool load_content() {
 			balls["second_ball"].get_transform().position = vec3(-1.0f, 2.0f, 0.0f);
 			balls["second_ball"].set_material(mat);
 			textures["second_ball"] = texture("textures/gelblue.png");
+			dissolve[1] = texture("textures/blueDissolve.jpg");
 
 			mat.set_diffuse(vec4(0.0f, 1.0f, 0.0f, 1.0f));
 			mat.set_specular(vec4(1.0f, 0.0f, 0.0f, 1.0f));
@@ -259,7 +300,10 @@ bool load_content() {
 			balls["third_ball"].get_transform().position = vec3(1.0f, -2.0f, 0.0f);
 			balls["third_ball"].set_material(mat);
 			textures["third_ball"] = texture("textures/gelred.jpg");
+			dissolve[2] = texture("textures/redDissolve.jpg");
 		}
+
+		
 	}
 
 
@@ -290,32 +334,47 @@ bool load_content() {
 		cube_map = cubemap(filenames);
 	}
 
+	//effects
+	{
+		eff.add_shader("shaders/ballbasic.vert", GL_VERTEX_SHADER);
+		eff.add_shader("shaders/ballbasic.frag", GL_FRAGMENT_SHADER);
 
-	eff.add_shader("shaders/basic.vert", GL_VERTEX_SHADER);
-	eff.add_shader("shaders/basic.frag", GL_FRAGMENT_SHADER);
+		geff.add_shader("shaders/ballbasic.vert", GL_VERTEX_SHADER);
+		geff.add_shader("shaders/greyscale.frag", GL_FRAGMENT_SHADER);
 
-	
+		beff.add_shader("shaders/ballbasic.vert", GL_VERTEX_SHADER);
+		beff.add_shader("shaders/blur.frag", GL_FRAGMENT_SHADER);
 
-	tableNorm.add_shader("shaders/normal.frag", GL_FRAGMENT_SHADER);
-	tableNorm.add_shader("shaders/normal.vert", GL_VERTEX_SHADER);
-	tableNorm.add_shader("shaders/part_direction.frag", GL_FRAGMENT_SHADER);
-	tableNorm.add_shader("shaders/part_normal_map.frag", GL_FRAGMENT_SHADER);
-	//skybox shaders
-	sbeff.add_shader("shaders/skybox.vert", GL_VERTEX_SHADER);
-	sbeff.add_shader("shaders/skybox.frag", GL_FRAGMENT_SHADER);
-    // Build effect
-    eff.build();
-	sbeff.build();
-	tableNorm.build();
+		mirrorEff.add_shader("shaders/ballbasic.vert", GL_VERTEX_SHADER);
+		mirrorEff.add_shader("shaders/ballbasic.frag", GL_FRAGMENT_SHADER);
 
+		tableNorm.add_shader("shaders/normal.frag", GL_FRAGMENT_SHADER);
+		tableNorm.add_shader("shaders/normal.vert", GL_VERTEX_SHADER);
+		tableNorm.add_shader("shaders/part_direction.frag", GL_FRAGMENT_SHADER);
+		tableNorm.add_shader("shaders/part_normal_map.frag", GL_FRAGMENT_SHADER);
+		//skybox shaders
+		sbeff.add_shader("shaders/skybox.vert", GL_VERTEX_SHADER);
+		sbeff.add_shader("shaders/skybox.frag", GL_FRAGMENT_SHADER);
+
+		balleff.add_shader("shaders/dissolve.vert", GL_VERTEX_SHADER);
+		balleff.add_shader("shaders/dissolve.frag", GL_FRAGMENT_SHADER);
+
+		// Build effect
+		eff.build();
+		sbeff.build();
+		tableNorm.build();
+		mirrorEff.build();
+		geff.build();
+		beff.build();
+		balleff.build();
+	}
   // Set camera properties
   freeCam.set_position(vec3(0.0f, 0.0f, 10.0f));
   freeCam.set_target(vec3(0.0f, 0.0f, 0.0f));
   freeCam.set_projection(quarter_pi<float>(), renderer::get_screen_aspect(), 0.1f, 1000.0f);
-
-  //this is a test
-  targetCam.set_position(vec3(0.0f, 0.0f, 10.0f));
-  targetCam.set_projection(quarter_pi<float>(), renderer::get_screen_aspect(), 0.1f, 1000.0f);
+  mirrorCam.set_position(vec3(0.0f, 3.75f, 9.9f));
+  mirrorCam.set_target(vec3(0.0f, 0.0f, 10.0f));
+  
   return true;
 }
 
@@ -323,107 +382,143 @@ bool load_content() {
 bool update(float delta_time) {
 	// The ratio of pixels to rotation
 	static double ratio_width = quarter_pi<float>() / static_cast<float>(renderer::get_screen_width());
-	static double ratio_height = (quarter_pi<float>() * (static_cast<float>(renderer::get_screen_height()) /
-		static_cast<float>(renderer::get_screen_width()))) /
-		static_cast<float>(renderer::get_screen_height());
+static double ratio_height = (quarter_pi<float>() * (static_cast<float>(renderer::get_screen_height()) /
+	static_cast<float>(renderer::get_screen_width()))) /
+	static_cast<float>(renderer::get_screen_height());
 
-	// Increment theta - half a rotation per second
-	theta += pi<float>() * delta_time;
+// Increment theta - half a rotation per second
+theta += pi<float>() * delta_time;
+UV_Scroll += vec2(0, delta_time * 2);
 
-	//Different camera types
+
+//Different camera types
+{
+	//release setcam
+	if (glfwGetKey(renderer::get_window(), GLFW_KEY_SPACE)) {
+		freeCam.set_position(vec3(0.0f, 0.0f, 0.0f));
+		freeCam.set_target(vec3(0.0f, 0.0f, 10.0f));
+		mirrorCam.set_position(mirror["mirrorPlane"].get_transform().position);
+		mirrorCam.set_target(vec3(0.0f, 0.0f, -10.0f));
+		cam_type = false;
+	}
+	if (glfwGetKey(renderer::get_window(), GLFW_KEY_1)) {
+		targetCam.set_position(vec3(8.0f, 3.0f, 8.0f));
+		targetCam.set_target(vec3(0.0f, 0.0f, 0.0f));
+		cam_type = true;
+	}
+	if (glfwGetKey(renderer::get_window(), GLFW_KEY_2)) {
+		targetCam.set_position(vec3(8.0f, 3.0f, -8.0f));
+		targetCam.set_target(vec3(0.0f, 0.0f, 0.0f));
+		cam_type = true;
+	}
+	if (glfwGetKey(renderer::get_window(), GLFW_KEY_3)) {
+		targetCam.set_position(vec3(-8.0f, 3.0f, 8.0f));
+		targetCam.set_target(vec3(0.0f, 0.0f, 0.0f));
+		cam_type = true;
+	}
+	if (glfwGetKey(renderer::get_window(), GLFW_KEY_4)) {
+		targetCam.set_position(vec3(-8.0f, 3.0f, -8.0f));
+		targetCam.set_target(vec3(0.0f, 0.0f, 0.0f));
+		cam_type = true;
+	}
+}
+
+//post processing
+{
+	if (glfwGetKey(renderer::get_window(), GLFW_KEY_G))
 	{
-		//release setcam
-		if (glfwGetKey(renderer::get_window(), GLFW_KEY_SPACE)) {
-			freeCam.set_position(targetCam.get_position());
-			freeCam.set_target(targetCam.get_target());
-			cam_type = false;
-		}
-		if (glfwGetKey(renderer::get_window(), GLFW_KEY_1)) {
-			targetCam.set_position(vec3(8.0f, 3.0f, 8.0f));
-			targetCam.set_target(vec3(0.0f, 0.0f, 0.0f));
-			cam_type = true;
-		}
-		if (glfwGetKey(renderer::get_window(), GLFW_KEY_2)) {
-			targetCam.set_position(vec3(8.0f, 3.0f, -8.0f));
-			targetCam.set_target(vec3(0.0f, 0.0f, 0.0f));
-			cam_type = true;
-		}
-		if (glfwGetKey(renderer::get_window(), GLFW_KEY_3)) {
-			targetCam.set_position(vec3(-8.0f, 3.0f, 8.0f));
-			targetCam.set_target(vec3(0.0f, 0.0f, 0.0f));
-			cam_type = true;
-		}
-		if (glfwGetKey(renderer::get_window(), GLFW_KEY_4)) {
-			targetCam.set_position(vec3(-8.0f, 3.0f, -8.0f));
-			targetCam.set_target(vec3(0.0f, 0.0f, 0.0f));
-			cam_type = true;
-		}
+		greyscale = true;
+		blur = false;
+		built = false;
 	}
 
-	//set ball and light movement
+	if (glfwGetKey(renderer::get_window(), GLFW_KEY_P))
 	{
-		//ball1 (green ball)
-		if (ball1_direction) {
-			balls["first_ball"].get_transform().position.y -= delta_time;
-			if (balls["first_ball"].get_transform().position.y <= -3.0f)
-			{
-				ball1_direction = false;
-			}
+		greyscale = false;
+		blur = false;
+	}
 
-		}
-		else {
-			balls["first_ball"].get_transform().position.y += delta_time;
-			if (balls["first_ball"].get_transform().position.y >= 3.0f)
-				ball1_direction = true;
-		}
+	if (glfwGetKey(renderer::get_window(), GLFW_KEY_B))
+	{
+		blur = true;
+		greyscale = false;
+		built = false;
+	}
 
-		//ball2 (blue ball)
-		if (ball2_direction) {
-			balls["second_ball"].get_transform().position.y -= delta_time;
-			balls["second_ball"].get_transform().position.x += sin(theta) * 0.05;
-			balls["second_ball"].get_transform().position.z += cos(theta) * 0.05;
-			if (balls["second_ball"].get_transform().position.y <= -3.0f)
-			{
-				ball2_direction = false;
-			}
+}
 
-		}
-		else {
-			balls["second_ball"].get_transform().position.y += delta_time;
-			balls["second_ball"].get_transform().position.x += sin(theta) * 0.05;
-			balls["second_ball"].get_transform().position.z += cos(theta) * 0.05;
-			if (balls["second_ball"].get_transform().position.y >= 3.0f)
-				ball2_direction = true;
-		}
 
-		//ball3 (red ball)
-		if (ball3_direction) {
-			balls["third_ball"].get_transform().position.y -= delta_time;
-			balls["third_ball"].get_transform().position.x -= sin(theta) * 0.05;
-			balls["third_ball"].get_transform().position.z -= cos(theta) * 0.05;
-			if (balls["third_ball"].get_transform().position.y <= -3.0f)
-			{
-				ball3_direction = false;
-			}
 
-		}
-		else {
-			balls["third_ball"].get_transform().position.y += delta_time;
-			balls["third_ball"].get_transform().position.x -= sin(theta) * 0.05;
-			balls["third_ball"].get_transform().position.z -= cos(theta) * 0.05;
-			if (balls["third_ball"].get_transform().position.y >= 3.0f)
-				ball3_direction = true;
-		}
 
-		//move lights to go with balls
-		ball_lights[0].set_position(balls["first_ball"].get_transform().position);
-		ball_lights[1].set_position(balls["second_ball"].get_transform().position);
-		ball_lights[2].set_position(balls["third_ball"].get_transform().position);
+
+//set ball and light movement
+{
+	//ball1 (green ball)
+	if (ball1_direction) {
+		balls["first_ball"].get_transform().position.y -= delta_time;
+		dissolve_factor = clamp(dissolve_factor + 0.1f * delta_time, 0.0f, 1.0f);
+		if (balls["first_ball"].get_transform().position.y <= -3.0f)
+		{
+			ball1_direction = false;
+		}
 
 	}
-	
+	else {
+		balls["first_ball"].get_transform().position.y += delta_time;
+		dissolve_factor = clamp(dissolve_factor - 0.1f * delta_time, 0.0f, 1.0f);
+		if (balls["first_ball"].get_transform().position.y >= 3.0f)
+			ball1_direction = true;
+	}
+
+	//ball2 (blue ball)
+	if (ball2_direction) {
+		balls["second_ball"].get_transform().position.y -= delta_time;
+		balls["second_ball"].get_transform().position.x += sin(theta) * 0.05;
+		balls["second_ball"].get_transform().position.z += cos(theta) * 0.05;
+		if (balls["second_ball"].get_transform().position.y <= -3.0f)
+		{
+			ball2_direction = false;
+		}
+
+	}
+	else {
+		balls["second_ball"].get_transform().position.y += delta_time;
+		balls["second_ball"].get_transform().position.x += sin(theta) * 0.05;
+		balls["second_ball"].get_transform().position.z += cos(theta) * 0.05;
+		if (balls["second_ball"].get_transform().position.y >= 3.0f)
+			ball2_direction = true;
+	}
+
+	//ball3 (red ball)
+	if (ball3_direction) {
+		balls["third_ball"].get_transform().position.y -= delta_time;
+		balls["third_ball"].get_transform().position.x -= sin(theta) * 0.05;
+		balls["third_ball"].get_transform().position.z -= cos(theta) * 0.05;
+		if (balls["third_ball"].get_transform().position.y <= -3.0f)
+		{
+			ball3_direction = false;
+		}
+
+	}
+	else {
+		balls["third_ball"].get_transform().position.y += delta_time;
+		balls["third_ball"].get_transform().position.x -= sin(theta) * 0.05;
+		balls["third_ball"].get_transform().position.z -= cos(theta) * 0.05;
+		if (balls["third_ball"].get_transform().position.y >= 3.0f)
+			ball3_direction = true;
+	}
+
+	//move lights to go with balls
+	ball_lights[0].set_position(balls["first_ball"].get_transform().position);
+	ball_lights[1].set_position(balls["second_ball"].get_transform().position);
+	ball_lights[2].set_position(balls["third_ball"].get_transform().position);
 
 
+
+	}
+
+//cam movement
+{
 	double current_x;
 	double current_y;
 	// Get the current cursor position
@@ -438,6 +533,7 @@ bool update(float delta_time) {
 	// delta_y - x-axis rotation
 	// delta_x - y-axis rotation
 	freeCam.rotate(delta_x, -delta_y);
+	//mirrorCam.rotate(-delta_x, delta_y);
 	int shift_held = 1;
 	if (glfwGetKey(renderer::get_window(), GLFW_KEY_LEFT_SHIFT))
 		shift_held = 5;
@@ -464,6 +560,7 @@ bool update(float delta_time) {
 	// Update cursor pos
 	cursor_x = current_x;
 	cursor_y = current_y;
+}
   return true;
 }
 
@@ -476,40 +573,12 @@ bool render() {
 			V = targetCam.get_view();
 			P = targetCam.get_projection();
 		}
-
-
-		//render the room
-		for (auto &e : room) {
-			auto m = e.second;
-			// Bind effect
-			renderer::bind(eff);
-			// Create MVP matrix
-			auto M = m.get_transform().get_transform_matrix();
-			auto MVP = P * V * M;
-			// Set MVP matrix uniform
-			glUniformMatrix4fv(eff.get_uniform_location("MVP"), 1, GL_FALSE, value_ptr(MVP));
-			//Set M Matrix uniform
-			glUniformMatrix4fv(eff.get_uniform_location("M"), 1, GL_FALSE, value_ptr(M));
-			//Set N Matrix uniform
-			glUniformMatrix3fv(eff.get_uniform_location("N"), 1, GL_FALSE, value_ptr(m.get_transform().get_normal_matrix()));
-			//bind material
-			renderer::bind(m.get_material(), "mat");
-			//bind point lights
-			renderer::bind(ball_lights, "points");
-			//bind light
-			//renderer::bind(light, "light");
-			//bind texture
-			renderer::bind(textures[e.first], 0);
-			//Set tex uniform
-			glUniform1i(eff.get_uniform_location("tex"), 0);
-			//Set eye position
-			if (cam_type)
-				glUniform3fv(eff.get_uniform_location("eye_pos"), 1, value_ptr(freeCam.get_position()));
-			else
-				glUniform3fv(eff.get_uniform_location("eye_pos"), 1, value_ptr(targetCam.get_position()));
-			//Render the object
-			renderer::render(m);
-		}
+		// Set render target to frame buffer
+		renderer::set_render_target(frame);
+		// Set clear colour to white
+		renderer::setClearColour(1.0f, 1.0f, 1.0f);
+		// Clear frame
+		renderer::clear();
 
 		//render the table
 		for (auto &e : table) {
@@ -536,7 +605,7 @@ bool render() {
 			//bind normalmap
 			renderer::bind(normalMap, 1);
 			// Set normal_map uniform
-			glUniform1i(eff.get_uniform_location("normal_map"), 1);
+			glUniform1i(tableNorm.get_uniform_location("normal_map"), 1);
 			//Set tex uniform
 			glUniform1i(tableNorm.get_uniform_location("tex"), 0);
 			//Set eye position
@@ -548,11 +617,20 @@ bool render() {
 			renderer::render(m);
 		}
 
-		//render the chair
-		for (auto &e : chair) {
+
+
+
+		// Bind effect
+		renderer::bind(eff);
+		//bind point lights
+		renderer::bind(ball_lights, "points");
+		//Set tex uniform
+		glUniform1i(eff.get_uniform_location("tex"), 0);
+
+		//render the room
+		for (auto &e : room) {
 			auto m = e.second;
-			// Bind effect
-			renderer::bind(eff);
+			
 			// Create MVP matrix
 			auto M = m.get_transform().get_transform_matrix();
 			auto MVP = P * V * M;
@@ -564,14 +642,38 @@ bool render() {
 			glUniformMatrix3fv(eff.get_uniform_location("N"), 1, GL_FALSE, value_ptr(m.get_transform().get_normal_matrix()));
 			//bind material
 			renderer::bind(m.get_material(), "mat");
-			//bind point lights
-			renderer::bind(ball_lights, "points");
-			//bind light
-			//renderer::bind(light, "light");
+			
 			//bind texture
 			renderer::bind(textures[e.first], 0);
-			//Set tex uniform
-			glUniform1i(eff.get_uniform_location("tex"), 0);
+			
+			//Set eye position
+			if (cam_type)
+				glUniform3fv(eff.get_uniform_location("eye_pos"), 1, value_ptr(freeCam.get_position()));
+			else
+				glUniform3fv(eff.get_uniform_location("eye_pos"), 1, value_ptr(targetCam.get_position()));
+			//Render the object
+			renderer::render(m);
+		}
+
+		//render the chair
+		for (auto &e : chair) {
+			auto m = e.second;
+			
+			// Create MVP matrix
+			auto M = m.get_transform().get_transform_matrix();
+			auto MVP = P * V * M;
+			// Set MVP matrix uniform
+			glUniformMatrix4fv(eff.get_uniform_location("MVP"), 1, GL_FALSE, value_ptr(MVP));
+			//Set M Matrix uniform
+			glUniformMatrix4fv(eff.get_uniform_location("M"), 1, GL_FALSE, value_ptr(M));
+			//Set N Matrix uniform
+			glUniformMatrix3fv(eff.get_uniform_location("N"), 1, GL_FALSE, value_ptr(m.get_transform().get_normal_matrix()));
+			//bind material
+			renderer::bind(m.get_material(), "mat");
+			
+			//bind texture
+			renderer::bind(textures[e.first], 0);
+			
 			//Set eye position
 			if (cam_type)
 				glUniform3fv(eff.get_uniform_location("eye_pos"), 1, value_ptr(freeCam.get_position()));
@@ -676,7 +778,9 @@ bool render() {
 			//Render the object
 			renderer::render(m);
 		}
+		
 
+		int i = 0;
 		for (auto &e : balls) {
 			auto m = e.second;
 			// Bind effect
@@ -690,17 +794,22 @@ bool render() {
 			glUniformMatrix4fv(eff.get_uniform_location("M"), 1, GL_FALSE, value_ptr(M));
 			//Set N Matrix uniform
 			glUniformMatrix3fv(eff.get_uniform_location("N"), 1, GL_FALSE, value_ptr((m.get_transform().get_normal_matrix())));
+			//glUniform1f(balleff.get_uniform_location("dissolve_factor"), dissolve_factor);
 			//bind material
 			renderer::bind(m.get_material(), "mat");
 			//bind point lights
 			renderer::bind(ball_lights, "points");
 			//bind light
 			renderer::bind(spotlight, "spotlight");
-			//renderer::bind(light, "light");
+			renderer::bind(light, "light");
 			//bind texture
 			renderer::bind(textures[e.first], 0);
+			//renderer::bind(dissolve[i], 1);
 			//Set tex uniform
 			glUniform1i(eff.get_uniform_location("tex"), 0);
+			//glUniform1i(balleff.get_uniform_location("dissolve"), 1);
+
+			//glUniform2fv(balleff.get_uniform_location("UV_SCROLL"), 1, value_ptr(UV_Scroll));
 			//Set eye position
 			if (cam_type)
 				glUniform3fv(eff.get_uniform_location("eye_pos"), 1, value_ptr(freeCam.get_position()));
@@ -708,21 +817,162 @@ bool render() {
 				glUniform3fv(eff.get_uniform_location("eye_pos"), 1, value_ptr(targetCam.get_position()));
 			//Render the object
 			renderer::render(m);
+			i++;
 		}
+
+
 
 		glDisable(GL_CULL_FACE);
 
 		renderer::bind(sbeff);
-		auto MVP = P * V * scale(mat4(), vec3(100.0f));
+		auto MVP = P * V * scale(mat4(), vec3(500.0f));
 		glUniformMatrix4fv(sbeff.get_uniform_location("MVP"), 1, GL_FALSE, value_ptr(MVP));
 		renderer::bind(cube_map, 0);
 		glUniform1i(sbeff.get_uniform_location("cubemap"), 0);
 		renderer::render(geometry_builder::create_box());
 
 		glEnable(GL_CULL_FACE);
+
+		
+		
+		// *********************************
+		// Render meshes
+		for (auto &e : mirror) {
+			auto m = e.second;
+			// Bind effect
+			renderer::bind(mirrorEff);
+			// Create MVP matrix
+			auto M = m.get_transform().get_transform_matrix();
+			auto V = mirrorCam.get_view();
+			auto P = mirrorCam.get_projection();
+			auto MVP = P * V * M;
+			// Set MVP matrix uniform
+			glUniformMatrix4fv(mirrorEff.get_uniform_location("MVP"), 1, GL_FALSE, value_ptr(MVP));
+			// Create MV matrix
+			auto MV = V * M;
+			// Set MV matrix uniform
+			glUniformMatrix4fv(mirrorEff.get_uniform_location("MV"), 1, GL_FALSE, value_ptr(MV));
+			// Set M matrix uniform
+			glUniformMatrix4fv(mirrorEff.get_uniform_location("M"), 1, GL_FALSE, value_ptr(M));
+			// Set N matrix uniform
+			glUniformMatrix3fv(mirrorEff.get_uniform_location("N"), 1, GL_FALSE, value_ptr(m.get_transform().get_normal_matrix()));
+			// Bind material
+			renderer::bind(m.get_material(), "mat");
+			// Bind light
+			renderer::bind(ball_lights, "points");
+			//spotlight
+			renderer::bind(spotlight, "spotlight");
+			// Bind texture
+			renderer::bind(textures[e.first], 0);
+			// Set tex uniform
+			glUniform1i(mirrorEff.get_uniform_location("tex"), 0);
+			// Set eye position
+			glUniform3fv(mirrorEff.get_uniform_location("eye_pos"), 1, value_ptr(mirrorCam.get_position()));
+
+			// Render mesh
+			renderer::render(m);
+		}
+
+		//bind mirror effect
+		renderer::bind(mirrorEff);
+		//get M from the mirror
+		auto M = mirror["mirrorPlane"].get_transform().get_transform_matrix();
+		//P and V
+		V = freeCam.get_view();
+		P = freeCam.get_projection();
+		//MVP
+		MVP = P * M * V;
+		//mvp matrix uniform
+		glUniformMatrix4fv(mirrorEff.get_uniform_location("MVP"), 1, GL_FALSE, value_ptr(MVP));
+		//bind texture from buffer
+		renderer::bind(frame.get_frame(), 1);
+		//set tex uniform
+		glUniform1i(mirrorEff.get_uniform_location("tex"), 1);
+		//render mirror
+		renderer::render(mirror["mirrorPlane"]);
+
+
+
+
+
+
+		// Return clear colour to cyan
+		renderer::setClearColour(0.0f, 1.0f, 1.0f);
+		// *********************************
+		// Set render target back to the screen
+		renderer::set_render_target();
+
+		effect EFF = eff;
+		if (greyscale)
+		{
+			EFF = geff;
+			built = true;
+		}
+		else if (blur)
+		{
+			EFF = beff;
+			built = true;
+		}
+		else
+		{
+			EFF = eff;
+		}
+		if (!built)
+		{
+			built = true;
+			EFF.build();
+		}
+
+		
+
+		// Set render target back to the screen
+		renderer::set_render_target();
+		//if blur
+		if (blur)
+		{
+			renderer::bind(EFF);
+			// MVP is now the identity matrix
+			mat4 MVP(1.0f);
+			// Set MVP matrix uniform
+			glUniformMatrix4fv(EFF.get_uniform_location("MVP"), 1, GL_FALSE, value_ptr(MVP));
+			// Bind texture from frame buffer
+			renderer::bind(frame.get_frame(), 0);
+			// Set the tex uniform
+			glUniform1i(EFF.get_uniform_location("tex"), 0);
+			// Set inverse width Uniform
+			glUniform1f(EFF.get_uniform_location("inverse_width"), 1.0f / renderer::get_screen_width());
+			// Set inverse height Uniform
+			glUniform1f(EFF.get_uniform_location("inverse_height"), 1.0f / renderer::get_screen_height());
+			// Render the screen quad
+			renderer::render(screen_quad);
+		}
+		else
+		{
+			// Set inverse width Uniform
+			glUniform1f(EFF.get_uniform_location("inverse_width"), 1.0f / renderer::get_screen_width());
+			// Set inverse height Uniform
+			glUniform1f(EFF.get_uniform_location("inverse_height"), 1.0f / renderer::get_screen_height());
+			// Bind Tex effect
+			renderer::bind(EFF);
+			// MVP is now the identity matrix
+			MVP = mat4(1);
+			// Set MVP matrix uniform
+			glUniformMatrix4fv(EFF.get_uniform_location("MVP"), 1, GL_FALSE, value_ptr(MVP));
+			// Bind texture from frame buffer
+			renderer::bind(frame.get_frame(), 1);
+			// Set the tex uniform
+			glUniform1i(EFF.get_uniform_location("tex"), 1);
+			// Render the screen quad
+			renderer::render(screen_quad);
+		}
+		// *********************************
+		
+
+		
 	}
 	return true;
 }
+
 
 void main() {
   // Create application

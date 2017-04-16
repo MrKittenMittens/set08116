@@ -2,6 +2,8 @@
 
 // Sampler used to get texture colour
 uniform sampler2D tex;
+//dissolve
+uniform sampler2D dissolve;
 
 //point light info
 struct point_light{
@@ -40,7 +42,8 @@ uniform spot_light spotlight;
 uniform material mat;
 //eye pos
 uniform vec3 eye_pos;
-uniform bool greyscale;
+uniform float dissolve_factor;
+
 
 //incoming position
 layout(location = 0) in vec3 position;
@@ -161,7 +164,19 @@ void main() {
 
   //calculate view direction and texture
   vec3 view_direction = normalize(eye_pos - position);
-  vec4 texture_colour = texture(tex, tex_coord);
+  vec4 texture_colour; 
+
+  vec4 dissolve_value = texture(dissolve, tex_coord);
+
+  if ((dissolve_value.r) > dissolve_factor)
+  {
+	discard;
+  }
+  else
+  {
+	colour = texture(tex, tex_coord);
+  }
+
   //point lights
   for (int i = 0; i < 3; i++)
   {

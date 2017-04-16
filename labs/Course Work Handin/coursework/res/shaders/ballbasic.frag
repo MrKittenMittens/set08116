@@ -40,11 +40,9 @@ uniform spot_light spotlight;
 uniform material mat;
 //eye pos
 uniform vec3 eye_pos;
-uniform bool greyscale;
 
 //incoming position
 layout(location = 0) in vec3 position;
-
 
 //normal
 layout(location = 1) in vec3 normal;
@@ -79,7 +77,6 @@ vec4 calculate_balls(in point_light point, in material mat, in vec3 position, in
   // direction
   vec3 light_direction = normalize(point.position - position);
   // Now use standard phong shading but using calculated light colour and direction
-  // - note no ambient
 
   // diffuse
   float kd = max(dot(normal, light_direction), 0.0);
@@ -168,10 +165,4 @@ void main() {
 	colour += calculate_balls(points[i], mat, position, normal, view_direction, texture_colour, eye_pos);
   }
   colour += calculate_spotlight(spotlight, mat, position, normal, view_direction, texture_colour);
-
-
-
-
-
-
 }
